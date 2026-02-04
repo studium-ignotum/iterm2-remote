@@ -9,19 +9,19 @@ Requirements for initial release. Complete rebuild of existing broken implementa
 
 ### Connection
 
-- [ ] **CONN-01**: Mac client connects to cloud relay via WebSocket
-- [ ] **CONN-02**: Browser connects to cloud relay via WebSocket
-- [ ] **CONN-03**: Relay routes messages between Mac and browser
-- [ ] **CONN-04**: Connection auto-reconnects on network interruption
-- [ ] **CONN-05**: Connection status visible in browser UI
+- [x] **CONN-01**: Mac client connects to cloud relay via WebSocket ✓
+- [x] **CONN-02**: Browser connects to cloud relay via WebSocket ✓
+- [x] **CONN-03**: Relay routes messages between Mac and browser ✓
+- [x] **CONN-04**: Connection auto-reconnects on network interruption ✓
+- [x] **CONN-05**: Connection status visible in browser UI ✓
 
 ### Authentication
 
-- [ ] **AUTH-01**: Mac client generates session code on startup
-- [ ] **AUTH-02**: Session code displayed to user on Mac
-- [ ] **AUTH-03**: Browser prompts for session code to connect
-- [ ] **AUTH-04**: Invalid session code rejected with clear error
-- [ ] **AUTH-05**: Session codes expire after configurable time
+- [x] **AUTH-01**: Mac client generates session code on startup ✓
+- [x] **AUTH-02**: Session code displayed to user on Mac ✓
+- [x] **AUTH-03**: Browser prompts for session code to connect ✓
+- [x] **AUTH-04**: Invalid session code rejected with clear error ✓
+- [x] **AUTH-05**: Session codes expire after configurable time ✓
 
 ### Terminal
 
@@ -84,16 +84,16 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONN-01 | Phase 1 | Pending |
-| CONN-02 | Phase 1 | Pending |
-| CONN-03 | Phase 1 | Pending |
-| CONN-04 | Phase 1 | Pending |
-| CONN-05 | Phase 1 | Pending |
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
+| CONN-01 | Phase 1 | Complete |
+| CONN-02 | Phase 1 | Complete |
+| CONN-03 | Phase 1 | Complete |
+| CONN-04 | Phase 1 | Complete |
+| CONN-05 | Phase 1 | Complete |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
+| AUTH-04 | Phase 1 | Complete |
+| AUTH-05 | Phase 1 | Complete |
 | TERM-01 | Phase 2 | Pending |
 | TERM-02 | Phase 2 | Pending |
 | TERM-03 | Phase 2 | Pending |

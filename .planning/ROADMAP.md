@@ -10,7 +10,7 @@ This roadmap delivers a complete rebuild of the iTerm2 remote control system. St
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Connection & Authentication** - Establish relay infrastructure with session code auth
+- [x] **Phase 1: Connection & Authentication** - Establish relay infrastructure with session code auth ✓
 - [ ] **Phase 2: Terminal & iTerm2 Integration** - Full terminal emulation with tab management
 - [ ] **Phase 3: Performance & Reliability** - Production-ready optimization
 
@@ -29,9 +29,9 @@ This roadmap delivers a complete rebuild of the iTerm2 remote control system. St
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Shared protocol + relay server (Wave 1)
-- [ ] 01-02-PLAN.md — Mac client with reconnection (Wave 2)
-- [ ] 01-03-PLAN.md — Browser client + connection status UI (Wave 2)
+- [x] 01-01-PLAN.md — Shared protocol + relay server (Wave 1) ✓
+- [x] 01-02-PLAN.md — Mac client with reconnection (Wave 2) ✓
+- [x] 01-03-PLAN.md — Browser client + connection status UI (Wave 2) ✓
 
 ### Phase 2: Terminal & iTerm2 Integration
 **Goal**: Full terminal experience with iTerm2 tab management
@@ -70,7 +70,7 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Connection & Authentication | 0/3 | Planned | - |
+| 1. Connection & Authentication | 3/3 | ✓ Complete | 2026-02-04 |
 | 2. Terminal & iTerm2 Integration | 0/? | Not started | - |
 | 3. Performance & Reliability | 0/? | Not started | - |
 
