@@ -109,6 +109,127 @@ export const PongMessage = z.object({
 export type PongMessage = z.infer<typeof PongMessage>;
 
 // =============================================================================
+// Terminal I/O Messages
+// =============================================================================
+
+/**
+ * Terminal output data from Mac to Browser (raw escape sequences)
+ */
+export const TerminalDataMessage = z.object({
+  type: z.literal('terminal_data'),
+  sessionId: z.string(),
+  payload: z.string(),
+});
+export type TerminalDataMessage = z.infer<typeof TerminalDataMessage>;
+
+/**
+ * Terminal input from Browser to Mac (user keystrokes)
+ */
+export const TerminalInputMessage = z.object({
+  type: z.literal('terminal_input'),
+  sessionId: z.string(),
+  payload: z.string(),
+});
+export type TerminalInputMessage = z.infer<typeof TerminalInputMessage>;
+
+/**
+ * Terminal resize from Browser to Mac (dimensions changed)
+ */
+export const TerminalResizeMessage = z.object({
+  type: z.literal('terminal_resize'),
+  sessionId: z.string(),
+  cols: z.number().int().positive(),
+  rows: z.number().int().positive(),
+});
+export type TerminalResizeMessage = z.infer<typeof TerminalResizeMessage>;
+
+// =============================================================================
+// Tab Management Messages
+// =============================================================================
+
+/**
+ * Tab metadata (reusable schema)
+ */
+export const TabInfo = z.object({
+  tabId: z.string(),
+  sessionId: z.string(),
+  title: z.string(),
+  isActive: z.boolean(),
+});
+export type TabInfo = z.infer<typeof TabInfo>;
+
+/**
+ * Full tab list update from Mac to Browser
+ */
+export const TabListMessage = z.object({
+  type: z.literal('tab_list'),
+  tabs: z.array(TabInfo),
+});
+export type TabListMessage = z.infer<typeof TabListMessage>;
+
+/**
+ * Request to switch active tab (bidirectional)
+ */
+export const TabSwitchMessage = z.object({
+  type: z.literal('tab_switch'),
+  tabId: z.string(),
+});
+export type TabSwitchMessage = z.infer<typeof TabSwitchMessage>;
+
+/**
+ * Request to create a new tab (Browser to Mac)
+ */
+export const TabCreateMessage = z.object({
+  type: z.literal('tab_create'),
+});
+export type TabCreateMessage = z.infer<typeof TabCreateMessage>;
+
+/**
+ * Request to close a tab (Browser to Mac)
+ */
+export const TabCloseMessage = z.object({
+  type: z.literal('tab_close'),
+  tabId: z.string(),
+});
+export type TabCloseMessage = z.infer<typeof TabCloseMessage>;
+
+/**
+ * Notification that a new tab was created (Mac to Browser)
+ */
+export const TabCreatedMessage = z.object({
+  type: z.literal('tab_created'),
+  tab: TabInfo,
+});
+export type TabCreatedMessage = z.infer<typeof TabCreatedMessage>;
+
+/**
+ * Notification that a tab was closed (Mac to Browser)
+ */
+export const TabClosedMessage = z.object({
+  type: z.literal('tab_closed'),
+  tabId: z.string(),
+});
+export type TabClosedMessage = z.infer<typeof TabClosedMessage>;
+
+// =============================================================================
+// Configuration Messages
+// =============================================================================
+
+/**
+ * iTerm2 configuration sent from Mac to Browser for xterm.js setup
+ */
+export const ConfigMessage = z.object({
+  type: z.literal('config'),
+  font: z.string(),
+  fontSize: z.number(),
+  cursorStyle: z.enum(['block', 'underline', 'bar']),
+  cursorBlink: z.boolean(),
+  scrollback: z.number(),
+  theme: z.record(z.string(), z.string()),
+});
+export type ConfigMessage = z.infer<typeof ConfigMessage>;
+
+// =============================================================================
 // Discriminated Union for Incoming Messages
 // =============================================================================
 
@@ -120,6 +241,16 @@ export const IncomingMessage = z.discriminatedUnion('type', [
   JoinMessage,
   DataMessage,
   PingMessage,
+  TerminalDataMessage,
+  TerminalInputMessage,
+  TerminalResizeMessage,
+  TabListMessage,
+  TabSwitchMessage,
+  TabCreateMessage,
+  TabCloseMessage,
+  TabCreatedMessage,
+  TabClosedMessage,
+  ConfigMessage,
 ]);
 export type IncomingMessage = z.infer<typeof IncomingMessage>;
 
@@ -132,6 +263,16 @@ export const OutgoingMessage = z.discriminatedUnion('type', [
   ErrorMessage,
   DataMessage,
   PongMessage,
+  TerminalDataMessage,
+  TerminalInputMessage,
+  TerminalResizeMessage,
+  TabListMessage,
+  TabSwitchMessage,
+  TabCreateMessage,
+  TabCloseMessage,
+  TabCreatedMessage,
+  TabClosedMessage,
+  ConfigMessage,
 ]);
 export type OutgoingMessage = z.infer<typeof OutgoingMessage>;
 

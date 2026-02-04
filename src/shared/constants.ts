@@ -12,5 +12,11 @@ export const SESSION_CODE_ALPHABET = '346789ABCDEFGHJKLMNPQRTUVWXY';
 export const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
 export const HEARTBEAT_TIMEOUT_MS = 10000; // 10 seconds to respond
 
+// Terminal configuration
+export const TERMINAL_RESIZE_DEBOUNCE_MS = 100;
+export const TERMINAL_MIN_COLS = 20;
+export const TERMINAL_MIN_ROWS = 5;
+export const TERMINAL_DEFAULT_SCROLLBACK = 10000;
+
 // Server configuration
 export const DEFAULT_RELAY_PORT = 8080;
