@@ -11,7 +11,7 @@ This roadmap delivers a complete rebuild of the iTerm2 remote control system. St
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Connection & Authentication** - Establish relay infrastructure with session code auth ✓
-- [ ] **Phase 2: Terminal & iTerm2 Integration** - Full terminal emulation with tab management
+- [x] **Phase 2: Terminal & iTerm2 Integration** - Full terminal emulation with tab management ✓
 - [ ] **Phase 3: Performance & Reliability** - Production-ready optimization
 
 ## Phase Details
@@ -46,11 +46,11 @@ Plans:
 **Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Extended protocol + relay routing (Wave 1)
-- [ ] 02-02-PLAN.md — iTerm2 Python bridge + coprocess (Wave 1)
-- [ ] 02-03-PLAN.md — Mac client terminal integration (Wave 2)
-- [ ] 02-04-PLAN.md — Browser terminal with xterm-svelte (Wave 2)
-- [ ] 02-05-PLAN.md — Tab management + mobile UI (Wave 3)
+- [x] 02-01-PLAN.md — Extended protocol + relay routing (Wave 1) ✓
+- [x] 02-02-PLAN.md — iTerm2 Python bridge + coprocess (Wave 1) ✓
+- [x] 02-03-PLAN.md — Mac client terminal integration (Wave 2) ✓
+- [x] 02-04-PLAN.md — Browser terminal with xterm-svelte (Wave 2) ✓
+- [x] 02-05-PLAN.md — Tab management + mobile UI (Wave 3) ✓
 
 ### Phase 3: Performance & Reliability
 **Goal**: Production-ready performance and resource management
@@ -73,7 +73,7 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Connection & Authentication | 3/3 | ✓ Complete | 2026-02-04 |
-| 2. Terminal & iTerm2 Integration | 0/5 | Planned | - |
+| 2. Terminal & iTerm2 Integration | 5/5 | ✓ Complete | 2026-02-05 |
 | 3. Performance & Reliability | 0/? | Not started | - |
 
 ---
