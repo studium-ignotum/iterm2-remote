@@ -5,35 +5,31 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** Full terminal experience remotely - if it works in iTerm2, it should work in the browser
-**Current focus:** Phase 2 - Terminal & iTerm2 Integration
+**Current focus:** Phase 3 - Performance & Reliability
 
 ## Current Position
 
-Phase: 2 of 3 (Terminal & iTerm2 Integration)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-02-05 - Completed 02-04-PLAN.md
+Phase: 3 of 3 (Performance & Reliability)
+Plan: 0 of ? in current phase
+Status: Not started
+Last activity: 2026-02-05 - Completed Phase 2
 
-Progress: [########--] 78%
+Progress: [########=-] 89%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 4 min
-- Total execution time: 0.47 hours
+- Total execution time: ~0.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Connection & Auth | 3 | 14 min | 5 min |
-| 2. Terminal & iTerm2 | 4 | 14 min | 4 min |
+| 2. Terminal & iTerm2 | 5 | 20 min | 4 min |
 | 3. Performance | - | - | - |
-
-**Recent Trend:**
-- Last 5 plans: 02-01 (4 min), 02-02 (3 min), 02-03 (3 min), 02-04 (4 min)
-- Trend: Stable, fast execution
 
 *Updated after each plan completion*
 
@@ -60,6 +56,10 @@ Recent decisions affecting current work:
 | fileURLToPath for ESM dirname | tsconfig bundler moduleResolution lacks import.meta.dirname types | 02-03 |
 | Import addon types from xterm-svelte re-exports | pnpm virtual store prevents direct @xterm/* type imports | 02-04 |
 | Terminal.svelte exports write/getTerminal/fit | Store needs to write data to specific terminal instances | 02-04 |
+| Sticky modifiers for mobile control bar | Tap-once Ctrl/Alt for better touch UX | 02-05 |
+| SSR disabled globally | SvelteKit 2.50 + Svelte 5 + Vite 6 CSS bug; terminal app has no SSR benefit | 02-05 fix |
+| Python venv for mac-client deps | macOS Homebrew Python blocks pip install (PEP 668) | 02-05 fix |
+| .svelte.ts for rune-enabled stores | Svelte 5 $state only available in .svelte and .svelte.ts files | 02-05 fix |
 
 ### Pending Todos
 
@@ -68,9 +68,10 @@ None yet.
 ### Blockers/Concerns
 
 - socat not installed on system; coprocess script falls back to nc. Recommend `brew install socat` for production use.
+- iTerm2 resize: Mac bridge receives resize messages but doesn't resize iTerm2 PTY (design limitation — iTerm2 controls PTY size based on session display area).
 
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 02-04-PLAN.md
+Stopped at: Completed Phase 2, ready for Phase 3
 Resume file: None
