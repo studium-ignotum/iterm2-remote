@@ -26,11 +26,12 @@ This roadmap delivers a complete rebuild of the iTerm2 remote control system. St
   3. Invalid session codes are rejected with clear error message
   4. Connection status is visible in browser UI
   5. Connections auto-reconnect after network interruption
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Shared protocol + relay server (Wave 1)
+- [ ] 01-02-PLAN.md — Mac client with reconnection (Wave 2)
+- [ ] 01-03-PLAN.md — Browser client + connection status UI (Wave 2)
 
 ### Phase 2: Terminal & iTerm2 Integration
 **Goal**: Full terminal experience with iTerm2 tab management
@@ -69,7 +70,7 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Connection & Authentication | 0/? | Not started | - |
+| 1. Connection & Authentication | 0/3 | Planned | - |
 | 2. Terminal & iTerm2 Integration | 0/? | Not started | - |
 | 3. Performance & Reliability | 0/? | Not started | - |
 
