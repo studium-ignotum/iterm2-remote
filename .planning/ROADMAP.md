@@ -43,12 +43,14 @@ Plans:
   3. All terminal features work correctly (colors, cursor, special keys, copy/paste)
   4. User can view list of iTerm2 tabs in sidebar and switch between them
   5. Terminal resizes properly with browser window
-**Plans**: TBD
+**Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 02-01-PLAN.md — Extended protocol + relay routing (Wave 1)
+- [ ] 02-02-PLAN.md — iTerm2 Python bridge + coprocess (Wave 1)
+- [ ] 02-03-PLAN.md — Mac client terminal integration (Wave 2)
+- [ ] 02-04-PLAN.md — Browser terminal with xterm-svelte (Wave 2)
+- [ ] 02-05-PLAN.md — Tab management + mobile UI (Wave 3)
 
 ### Phase 3: Performance & Reliability
 **Goal**: Production-ready performance and resource management
@@ -71,9 +73,9 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Connection & Authentication | 3/3 | ✓ Complete | 2026-02-04 |
-| 2. Terminal & iTerm2 Integration | 0/? | Not started | - |
+| 2. Terminal & iTerm2 Integration | 0/5 | Planned | - |
 | 3. Performance & Reliability | 0/? | Not started | - |
 
 ---
 *Created: 2026-02-04*
-*Last updated: 2026-02-04*
+*Last updated: 2026-02-05*
