@@ -16,8 +16,8 @@ export type ConnectionState =
  */
 const STATE_TRANSITIONS: Record<ConnectionState, ConnectionState[]> = {
   disconnected: ['connecting'],
-  connecting: ['authenticating', 'disconnected'],
-  authenticating: ['connected', 'disconnected'],
+  connecting: ['authenticating', 'reconnecting', 'disconnected'],
+  authenticating: ['connected', 'reconnecting', 'disconnected'],
   connected: ['reconnecting', 'disconnected'],
   reconnecting: ['connecting', 'disconnected'],
 };
