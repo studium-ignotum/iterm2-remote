@@ -1,12 +1,19 @@
 mod protocol;
 mod session;
+mod state;
 
-use axum::{routing::get, Router};
+use axum::{extract::State, routing::get, Router};
 use std::net::SocketAddr;
 use tracing::info;
 
+use crate::state::AppState;
+
 async fn root() -> &'static str {
     "Relay Server v2"
+}
+
+async fn debug_sessions(State(state): State<AppState>) -> String {
+    format!("Active sessions: {}", state.session_count())
 }
 
 #[tokio::main]
@@ -20,8 +27,14 @@ async fn main() {
         .parse()
         .expect("PORT must be a valid number");
 
+    // Create application state
+    let state = AppState::new();
+
     // Build router
-    let app = Router::new().route("/", get(root));
+    let app = Router::new()
+        .route("/", get(root))
+        .route("/debug/sessions", get(debug_sessions))
+        .with_state(state);
 
     // Bind and serve
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
