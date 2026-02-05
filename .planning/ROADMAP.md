@@ -18,7 +18,7 @@ This roadmap covers two milestones. Milestone v1.0 (Phases 1-3) delivered the in
 
 ### Milestone v2.0 (Rust Rewrite)
 
-- [ ] **Phase 4: Relay Server** - Rust WebSocket server with embedded web UI
+- [x] **Phase 4: Relay Server** - Rust WebSocket server with embedded web UI
 - [ ] **Phase 5: Mac Client** - Menu bar app coordinating local sessions with relay
 - [ ] **Phase 6: Shell Integration** - Universal terminal support via PTY interposition
 - [ ] **Phase 7: Web UI & Full Pipeline** - Browser terminal interface with multi-session support
@@ -76,11 +76,11 @@ Plans: Deferred
 ---
 
 ### Phase 4: Relay Server (v2.0)
-**Status:** Planned
+**Status:** Complete
 **Goal**: Deployable Rust relay server that routes terminal data between clients
 **Depends on**: Nothing (first v2.0 phase)
 **Requirements**: RELAY-01, RELAY-02, RELAY-03, RELAY-04, RELAY-05
-**Plans:** 4 plans in 3 waves
+**Plans:** 4 plans in 4 waves
 **Success Criteria** (what must be TRUE):
   1. Single binary runs with embedded web UI accessible at configured port
   2. Mac-client can connect via WebSocket and register a session code
@@ -89,10 +89,10 @@ Plans: Deferred
   5. Invalid session codes are rejected with clear error
 
 Plans:
-- [ ] 04-01-PLAN.md -- Project foundation + protocol types (Wave 1)
-- [ ] 04-02-PLAN.md -- State management + session codes (Wave 2)
-- [ ] 04-03-PLAN.md -- Static asset embedding (Wave 2)
-- [ ] 04-04-PLAN.md -- WebSocket handler + message routing (Wave 3)
+- [x] 04-01-PLAN.md -- Project foundation + protocol types (Wave 1)
+- [x] 04-02-PLAN.md -- State management + session codes (Wave 2)
+- [x] 04-03-PLAN.md -- Static asset embedding (Wave 3)
+- [x] 04-04-PLAN.md -- WebSocket handler + message routing (Wave 4)
 
 ### Phase 5: Mac Client (v2.0)
 **Goal**: Menu bar app coordinates local sessions with cloud relay
@@ -146,11 +146,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 1. Connection & Authentication | 3/3 | Complete | 2026-02-04 |
 | 2. Terminal & iTerm2 Integration | 5/5 | Complete | 2026-02-05 |
 | 3. Performance & Reliability | - | Deferred | - |
-| 4. Relay Server | 0/4 | Planned | - |
+| 4. Relay Server | 4/4 | Complete | 2026-02-06 |
 | 5. Mac Client | 0/? | Not started | - |
 | 6. Shell Integration | 0/? | Not started | - |
 | 7. Web UI & Full Pipeline | 0/? | Not started | - |
 
 ---
 *Created: 2026-02-04*
-*Last updated: 2026-02-06 (Phase 4 planned)*
+*Last updated: 2026-02-06 (Phase 4 complete)*
