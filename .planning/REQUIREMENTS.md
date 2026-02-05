@@ -9,11 +9,11 @@ Requirements for v2.0 Rust rewrite with universal terminal support.
 
 ### Relay Server (Rust)
 
-- [ ] **RELAY-01**: WebSocket server handles connections from mac-client and browsers
-- [ ] **RELAY-02**: Session code authentication (generate, validate, expire)
-- [ ] **RELAY-03**: Message routing between mac-client and paired browser
-- [ ] **RELAY-04**: Static web UI embedded in binary (rust-embed)
-- [ ] **RELAY-05**: Single binary distribution with no runtime dependencies
+- [x] **RELAY-01**: WebSocket server handles connections from mac-client and browsers
+- [x] **RELAY-02**: Session code authentication (generate, validate, expire)
+- [x] **RELAY-03**: Message routing between mac-client and paired browser
+- [x] **RELAY-04**: Static web UI embedded in binary (rust-embed)
+- [x] **RELAY-05**: Single binary distribution with no runtime dependencies
 
 ### Mac Client (Rust Menu Bar)
 
@@ -102,11 +102,11 @@ Deferred to post-v2.0 release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RELAY-01 | Phase 4 | Pending |
-| RELAY-02 | Phase 4 | Pending |
-| RELAY-03 | Phase 4 | Pending |
-| RELAY-04 | Phase 4 | Pending |
-| RELAY-05 | Phase 4 | Pending |
+| RELAY-01 | Phase 4 | Complete |
+| RELAY-02 | Phase 4 | Complete |
+| RELAY-03 | Phase 4 | Complete |
+| RELAY-04 | Phase 4 | Complete |
+| RELAY-05 | Phase 4 | Complete |
 | CLIENT-01 | Phase 5 | Pending |
 | CLIENT-02 | Phase 5 | Pending |
 | CLIENT-03 | Phase 5 | Pending |
@@ -146,4 +146,4 @@ Deferred to post-v2.0 release.
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after v2.0 roadmap creation*
+*Last updated: 2026-02-06 after Phase 4 completion*
