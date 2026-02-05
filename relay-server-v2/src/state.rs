@@ -10,6 +10,8 @@ pub struct Session {
     pub client_id: String,
     /// Channel to send messages to the mac-client
     pub mac_tx: mpsc::Sender<Vec<u8>>,
+    /// Connected browsers: browser_id -> sender channel
+    pub browsers: DashMap<String, mpsc::Sender<Vec<u8>>>,
 }
 
 /// Shared application state
@@ -49,6 +51,7 @@ impl AppState {
                 code: code.clone(),
                 client_id,
                 mac_tx,
+                browsers: DashMap::new(),
             },
         );
 
@@ -76,6 +79,36 @@ impl AppState {
     /// Get count of active sessions (for debugging)
     pub fn session_count(&self) -> usize {
         self.inner.sessions.len()
+    }
+
+    /// Add a browser to a session
+    pub fn add_browser(&self, code: &str, browser_id: String, tx: mpsc::Sender<Vec<u8>>) {
+        if let Some(session) = self.inner.sessions.get(code) {
+            session.browsers.insert(browser_id, tx);
+        }
+    }
+
+    /// Remove a browser from a session
+    pub fn remove_browser(&self, code: &str, browser_id: &str) {
+        if let Some(session) = self.inner.sessions.get(code) {
+            session.browsers.remove(browser_id);
+        }
+    }
+
+    /// Broadcast terminal output to all browsers in a session
+    pub async fn broadcast_to_browsers(&self, code: &str, data: Vec<u8>) {
+        if let Some(session) = self.inner.sessions.get(code) {
+            for entry in session.browsers.iter() {
+                let _ = entry.value().send(data.clone()).await;
+            }
+        }
+    }
+
+    /// Send keyboard input to mac-client
+    pub async fn send_to_mac_client(&self, code: &str, data: Vec<u8>) {
+        if let Some(session) = self.inner.sessions.get(code) {
+            let _ = session.mac_tx.send(data).await;
+        }
     }
 }
 
