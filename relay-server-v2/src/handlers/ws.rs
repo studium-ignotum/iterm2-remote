@@ -6,6 +6,7 @@ use axum::{
     response::IntoResponse,
 };
 use futures_util::{SinkExt, StreamExt};
+use tokio::sync::mpsc;
 
 use crate::protocol::ControlMessage;
 use crate::state::AppState;
@@ -77,24 +78,153 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     }
 }
 
-/// Handle a mac-client connection (placeholder for Task 2)
+/// Handle a mac-client connection
 async fn handle_mac_client(
-    _sender: futures_util::stream::SplitSink<WebSocket, Message>,
-    _receiver: futures_util::stream::SplitStream<WebSocket>,
-    _state: AppState,
-    _client_id: String,
+    mut sender: futures_util::stream::SplitSink<WebSocket, Message>,
+    mut receiver: futures_util::stream::SplitStream<WebSocket>,
+    state: AppState,
+    client_id: String,
 ) {
-    // Will be implemented in Task 2
-    tracing::info!("Mac-client handler called");
+    // Create channel for receiving messages to send to mac-client
+    let (mac_tx, mut mac_rx) = mpsc::channel::<Vec<u8>>(1000);
+
+    // Register and get session code
+    let code = state.register_mac_client(client_id.clone(), mac_tx);
+
+    // Send registration confirmation
+    let response = ControlMessage::Registered { code: code.clone() };
+    if sender
+        .send(Message::Text(
+            serde_json::to_string(&response).unwrap().into(),
+        ))
+        .await
+        .is_err()
+    {
+        state.remove_session(&code);
+        return;
+    }
+
+    tracing::info!(code = %code, client_id = %client_id, "Mac-client connected");
+
+    // Spawn task to forward messages from browsers to mac-client
+    let code_clone = code.clone();
+    let send_task = tokio::spawn(async move {
+        while let Some(data) = mac_rx.recv().await {
+            if sender.send(Message::Binary(data.into())).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Process incoming messages from mac-client (terminal output)
+    while let Some(msg_result) = receiver.next().await {
+        match msg_result {
+            Ok(Message::Binary(data)) => {
+                // Forward terminal output to all connected browsers
+                state.broadcast_to_browsers(&code_clone, data.to_vec()).await;
+            }
+            Ok(Message::Text(text)) => {
+                // Handle control messages from mac-client
+                if let Ok(ctrl) = serde_json::from_str::<ControlMessage>(&text) {
+                    tracing::debug!(code = %code_clone, "Mac-client control: {:?}", ctrl);
+                    // Handle other control messages as needed
+                }
+            }
+            Ok(Message::Close(_)) => break,
+            Err(e) => {
+                tracing::debug!(code = %code_clone, "Mac-client error: {}", e);
+                break;
+            }
+            _ => {} // Ignore ping/pong
+        }
+    }
+
+    // Cleanup
+    send_task.abort();
+    state.remove_session(&code_clone);
+    tracing::info!(code = %code_clone, "Mac-client disconnected");
 }
 
-/// Handle a browser connection (placeholder for Task 2)
+/// Handle a browser connection
 async fn handle_browser(
-    _sender: futures_util::stream::SplitSink<WebSocket, Message>,
-    _receiver: futures_util::stream::SplitStream<WebSocket>,
-    _state: AppState,
-    _session_code: String,
+    mut sender: futures_util::stream::SplitSink<WebSocket, Message>,
+    mut receiver: futures_util::stream::SplitStream<WebSocket>,
+    state: AppState,
+    session_code: String,
 ) {
-    // Will be implemented in Task 2
-    tracing::info!("Browser handler called");
+    let code = session_code.to_uppercase();
+
+    // Validate session code
+    if !state.validate_session_code(&code) {
+        let response = ControlMessage::AuthFailed {
+            reason: "Invalid session code".into(),
+        };
+        let _ = sender
+            .send(Message::Text(
+                serde_json::to_string(&response).unwrap().into(),
+            ))
+            .await;
+        tracing::info!(code = %code, "Browser auth failed - invalid code");
+        return;
+    }
+
+    // Create channel for receiving terminal output
+    let (browser_tx, mut browser_rx) = mpsc::channel::<Vec<u8>>(1000);
+    let browser_id = nanoid::nanoid!(8);
+
+    // Register browser with session
+    state.add_browser(&code, browser_id.clone(), browser_tx);
+
+    // Send auth success
+    let response = ControlMessage::AuthSuccess;
+    if sender
+        .send(Message::Text(
+            serde_json::to_string(&response).unwrap().into(),
+        ))
+        .await
+        .is_err()
+    {
+        state.remove_browser(&code, &browser_id);
+        return;
+    }
+
+    tracing::info!(code = %code, browser_id = %browser_id, "Browser connected");
+
+    // Spawn task to forward terminal output to browser
+    let code_clone = code.clone();
+    let browser_id_clone = browser_id.clone();
+    let send_task = tokio::spawn(async move {
+        while let Some(data) = browser_rx.recv().await {
+            if sender.send(Message::Binary(data.into())).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Process incoming messages from browser (keyboard input)
+    while let Some(msg_result) = receiver.next().await {
+        match msg_result {
+            Ok(Message::Binary(data)) => {
+                // Forward keyboard input to mac-client
+                state.send_to_mac_client(&code_clone, data.to_vec()).await;
+            }
+            Ok(Message::Text(text)) => {
+                // Handle control messages from browser
+                if let Ok(ctrl) = serde_json::from_str::<ControlMessage>(&text) {
+                    tracing::debug!(code = %code_clone, "Browser control: {:?}", ctrl);
+                }
+            }
+            Ok(Message::Close(_)) => break,
+            Err(e) => {
+                tracing::debug!(code = %code_clone, "Browser error: {}", e);
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    // Cleanup
+    send_task.abort();
+    state.remove_browser(&code_clone, &browser_id_clone);
+    tracing::info!(code = %code_clone, browser_id = %browser_id_clone, "Browser disconnected");
 }
