@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 5 - Mac Client (1/6 plans complete)
-Plan: 01 complete
+Phase: 5 - Mac Client (2/6 plans complete)
+Plan: 02 complete
 Status: In progress
-Last activity: 2026-02-06 -- Completed 05-01-PLAN.md (Foundation)
+Last activity: 2026-02-06 -- Completed 05-02-PLAN.md (Relay Client)
 
-Progress: [##--------] 17% (phase 5)
+Progress: [###-------] 33% (phase 5)
 
 ## v2.0 Overview
 
@@ -73,6 +73,9 @@ Phase 3 (performance) deferred -- starting v2.0 Rust rewrite instead.
 | Template icon with icon_as_template(true) | macOS auto-inverts for dark mode | 05-01 |
 | Polling event loop with 10ms sleep | Non-blocking try_recv() avoids busy-waiting | 05-01 |
 | UiCommand/BackgroundEvent enums | Channel types for future thread communication | 05-01 |
+| std::sync::mpsc for relay events | AppKit compatibility - main thread runs event loop | 05-02 |
+| Max backoff 32 seconds | 5 doublings (2^5) before capping | 05-02 |
+| Protocol types duplicated | Type safety without shared crate complexity | 05-02 |
 
 ### v2.0 Stack (from research)
 
@@ -101,6 +104,6 @@ None -- relay server foundation established.
 
 ## Session Continuity
 
-Last session: 2026-02-06T21:25:00Z
-Stopped at: Completed 05-01-PLAN.md (Foundation)
-Resume file: .planning/phases/05-mac-client/05-02-PLAN.md
+Last session: 2026-02-06T21:29:00Z
+Stopped at: Completed 05-02-PLAN.md (Relay Client)
+Resume file: .planning/phases/05-mac-client/05-03-PLAN.md
