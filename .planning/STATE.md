@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 5 - Mac Client (4/6 plans complete)
-Plan: 04 complete
-Status: In progress
-Last activity: 2026-02-05 -- Completed 05-04-PLAN.md (Integration)
+Phase: 5 - Mac Client (6/6 plans complete)
+Plan: 06 complete
+Status: Phase complete
+Last activity: 2026-02-05 -- Completed 05-06-PLAN.md (Terminal Data Forwarding)
 
-Progress: [######----] 67% (phase 5)
+Progress: [##########] 100% (phase 5)
 
 ## v2.0 Overview
 
@@ -23,8 +23,8 @@ Four phases delivering a complete Rust rewrite with universal terminal support:
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 4 | Relay Server | 5 (RELAY) | COMPLETE (4/4 plans) |
-| 5 | Mac Client | 13 (CLIENT) | In progress (4/6 plans) |
-| 6 | Shell Integration | 9 (SHELL) | Blocked by Phase 5 |
+| 5 | Mac Client | 13 (CLIENT) | COMPLETE (6/6 plans) |
+| 6 | Shell Integration | 9 (SHELL) | Ready to start |
 | 7 | Web UI & Full Pipeline | 9 (WEB) | Blocked by Phase 6 |
 
 ## v1.0 Summary (Node.js/SvelteKit)
@@ -83,6 +83,9 @@ Phase 3 (performance) deferred -- starting v2.0 Rust rewrite instead.
 | AppState holds MenuItem refs | Allows set_text() calls for dynamic menu updates | 05-04 |
 | 2-second Copied! feedback | Polling reset in event loop, simple implementation | 05-04 |
 | BackgroundCommand::Shutdown | Graceful shutdown via channel signaling | 05-04 |
+| Binary frame format: 1-byte length prefix | Variable-length session IDs with simple framing | 05-06 |
+| Arc<Mutex<HashMap>> for IPC sessions | Shared mutable access from handler and command processor | 05-06 |
+| Clone command senders for forwarding | Each forwarder needs own copy for opposite-module routing | 05-06 |
 
 ### v2.0 Stack (from research)
 
@@ -107,10 +110,10 @@ None.
 
 ### Blockers/Concerns
 
-None -- relay server foundation established.
+None -- Mac client complete, ready for shell integration.
 
 ## Session Continuity
 
-Last session: 2026-02-05T21:36:38Z
-Stopped at: Completed 05-04-PLAN.md (Integration)
-Resume file: .planning/phases/05-mac-client/05-05-PLAN.md
+Last session: 2026-02-05T21:48:56Z
+Stopped at: Completed 05-06-PLAN.md (Terminal Data Forwarding)
+Resume file: .planning/phases/06-shell-integration/
