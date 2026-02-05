@@ -1,73 +1,88 @@
-# Requirements: iTerm2 Remote
+# Requirements: Terminal Remote v2.0
 
-**Defined:** 2026-02-04
-**Core Value:** Full terminal experience remotely - if it works in iTerm2, it should work in the browser.
+**Defined:** 2026-02-06
+**Core Value:** Control any terminal session from anywhere — works with any terminal app.
 
-## v1 Requirements
+## v2.0 Requirements
 
-Requirements for initial release. Complete rebuild of existing broken implementation.
+Requirements for v2.0 Rust rewrite with universal terminal support.
 
-### Connection
+### Relay Server (Rust)
 
-- [x] **CONN-01**: Mac client connects to cloud relay via WebSocket ✓
-- [x] **CONN-02**: Browser connects to cloud relay via WebSocket ✓
-- [x] **CONN-03**: Relay routes messages between Mac and browser ✓
-- [x] **CONN-04**: Connection auto-reconnects on network interruption ✓
-- [x] **CONN-05**: Connection status visible in browser UI ✓
+- [ ] **RELAY-01**: WebSocket server handles connections from mac-client and browsers
+- [ ] **RELAY-02**: Session code authentication (generate, validate, expire)
+- [ ] **RELAY-03**: Message routing between mac-client and paired browser
+- [ ] **RELAY-04**: Static web UI embedded in binary (rust-embed)
+- [ ] **RELAY-05**: Single binary distribution with no runtime dependencies
 
-### Authentication
+### Mac Client (Rust Menu Bar)
 
-- [x] **AUTH-01**: Mac client generates session code on startup ✓
-- [x] **AUTH-02**: Session code displayed to user on Mac ✓
-- [x] **AUTH-03**: Browser prompts for session code to connect ✓
-- [x] **AUTH-04**: Invalid session code rejected with clear error ✓
-- [x] **AUTH-05**: Session codes expire after configurable time ✓
+- [ ] **CLIENT-01**: Rust binary runs as menu bar app (no Dock icon)
+- [ ] **CLIENT-02**: WebSocket connection to cloud relay with auto-reconnect
+- [ ] **CLIENT-03**: Unix socket listener for shell integration IPC
+- [ ] **CLIENT-04**: Session management (track connected shells)
+- [ ] **CLIENT-05**: Status icon visible in menu bar
+- [ ] **CLIENT-06**: Click icon opens dropdown menu
+- [ ] **CLIENT-07**: Session code displayed in menu
+- [ ] **CLIENT-08**: Copy session code to clipboard action
+- [ ] **CLIENT-09**: Connection status indicator (relay connected/disconnected)
+- [ ] **CLIENT-10**: Quit option in menu
+- [ ] **CLIENT-11**: Start at login option (Login Items)
+- [ ] **CLIENT-12**: Template image for menu bar icon (auto dark/light)
+- [ ] **CLIENT-13**: Session count displayed in menu
 
-### Terminal
+### Shell Integration
 
-- [ ] **TERM-01**: Terminal output streams to browser in real-time
-- [ ] **TERM-02**: User input in browser sends to terminal
-- [ ] **TERM-03**: Full terminal emulation (colors, cursor, escape sequences)
-- [ ] **TERM-04**: Copy/paste works in browser terminal
-- [ ] **TERM-05**: Special keys work (Ctrl+C, arrows, Tab)
-- [ ] **TERM-06**: Terminal resizes with browser window
+- [ ] **SHELL-01**: Auto-connect to mac-client when shell starts
+- [ ] **SHELL-02**: Zsh integration script works (`source ~/.terminal-remote/init.zsh`)
+- [ ] **SHELL-03**: Bash integration script works (`source ~/.terminal-remote/init.bash`)
+- [ ] **SHELL-04**: Silent no-op when mac-client not running (no errors or delays)
+- [ ] **SHELL-05**: No prompt interference (works with starship, p10k, custom prompts)
+- [ ] **SHELL-06**: No perceptible command delay (<10ms added latency)
+- [ ] **SHELL-07**: Works in any terminal app (iTerm2, VS Code, Zed, Terminal.app, etc.)
+- [ ] **SHELL-08**: Session named from working directory or terminal app
+- [ ] **SHELL-09**: Graceful disconnect on shell exit (session removed from mac-client)
 
-### iTerm2 Integration
+### Web UI (Embedded)
 
-- [ ] **ITERM-01**: Mac client reads list of open iTerm2 tabs
-- [ ] **ITERM-02**: Tab list displays in browser sidebar
-- [ ] **ITERM-03**: User can switch between tabs in browser
-- [ ] **ITERM-04**: Active tab indicator shows which tab is selected
-- [ ] **ITERM-05**: New tabs appear automatically in browser
+- [ ] **WEB-01**: Real-time terminal output streaming via WebSocket
+- [ ] **WEB-02**: Keyboard input sent to terminal (including Ctrl+C, arrows, Tab)
+- [ ] **WEB-03**: Full terminal emulation with xterm.js (colors, cursor, escape sequences)
+- [ ] **WEB-04**: Copy/paste support via browser clipboard
+- [ ] **WEB-05**: Connection status indicator visible
+- [ ] **WEB-06**: Session code entry form to connect
+- [ ] **WEB-07**: Terminal resizes with browser window
+- [ ] **WEB-08**: Multi-session sidebar showing all connected terminals
+- [ ] **WEB-09**: Session switching (click to view different terminal)
 
-### Performance
+## Future Requirements
 
-- [ ] **PERF-01**: Incremental terminal updates (not full rewrite)
-- [ ] **PERF-02**: Latency under 100ms perceived for typing
-- [ ] **PERF-03**: Disconnected clients cleaned up properly
-- [ ] **PERF-04**: Terminal scrollback bounded to prevent memory issues
+Deferred to post-v2.0 release.
 
-## v2 Requirements
+### Menu Bar Enhancements
 
-Deferred to future release.
+- **MENU-F01**: Session list in dropdown menu
+- **MENU-F02**: Click session to open in browser
+- **MENU-F03**: QR code for session code
+- **MENU-F04**: Notification when new session connects
+- **MENU-F05**: Auto-regenerate session code periodically
 
-### Polish
+### Shell Integration Enhancements
 
-- **POLISH-01**: Clickable URLs in terminal output
-- **POLISH-02**: Search in scrollback history
-- **POLISH-03**: Custom color themes
-- **POLISH-04**: Keyboard shortcut parity with iTerm2
+- **SHELL-F01**: Fish shell support
+- **SHELL-F02**: One-liner installation script
+- **SHELL-F03**: tmux/screen detection
+- **SHELL-F04**: Working directory tracking (live updates)
+- **SHELL-F05**: Command start/end events
+- **SHELL-F06**: Process name tracking
 
-### Reliability
+### Web UI Enhancements
 
-- **REL-01**: Session survives browser refresh
-- **REL-02**: Terminal state recovery on reconnect
-- **REL-03**: Graceful server shutdown
-
-### Mobile
-
-- **MOBILE-01**: Touch-friendly UI on iPad
-- **MOBILE-02**: On-screen keyboard integration
+- **WEB-F01**: Session naming/renaming
+- **WEB-F02**: Session metadata display (PWD, app, shell)
+- **WEB-F03**: Grid view (multiple terminals visible)
+- **WEB-F04**: Session search/filter
+- **WEB-F05**: Mobile-responsive sidebar
 
 ## Out of Scope
 
@@ -75,46 +90,60 @@ Deferred to future release.
 |---------|--------|
 | User accounts | Single-user tool, session codes sufficient |
 | Multi-user collaboration | Not the use case |
-| File transfer | Use terminal commands (scp, rsync) |
-| Session recording | Enterprise feature, adds complexity |
-| Creating new terminals | View/control existing only |
+| Session recording | Privacy concerns, storage complexity |
+| File transfer UI | Use terminal commands (scp, rsync) |
 | Local-only mode | Always uses cloud relay |
+| Create new terminals | View/control existing only |
+| Terminal splits in browser | Terminal apps do this better |
+| SSH tunneling | Different use case |
+| Plugin system | Scope creep |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONN-01 | Phase 1 | Complete |
-| CONN-02 | Phase 1 | Complete |
-| CONN-03 | Phase 1 | Complete |
-| CONN-04 | Phase 1 | Complete |
-| CONN-05 | Phase 1 | Complete |
-| AUTH-01 | Phase 1 | Complete |
-| AUTH-02 | Phase 1 | Complete |
-| AUTH-03 | Phase 1 | Complete |
-| AUTH-04 | Phase 1 | Complete |
-| AUTH-05 | Phase 1 | Complete |
-| TERM-01 | Phase 2 | Pending |
-| TERM-02 | Phase 2 | Pending |
-| TERM-03 | Phase 2 | Pending |
-| TERM-04 | Phase 2 | Pending |
-| TERM-05 | Phase 2 | Pending |
-| TERM-06 | Phase 2 | Pending |
-| ITERM-01 | Phase 2 | Pending |
-| ITERM-02 | Phase 2 | Pending |
-| ITERM-03 | Phase 2 | Pending |
-| ITERM-04 | Phase 2 | Pending |
-| ITERM-05 | Phase 2 | Pending |
-| PERF-01 | Phase 3 | Pending |
-| PERF-02 | Phase 3 | Pending |
-| PERF-03 | Phase 3 | Pending |
-| PERF-04 | Phase 3 | Pending |
+| RELAY-01 | Phase 4 | Pending |
+| RELAY-02 | Phase 4 | Pending |
+| RELAY-03 | Phase 4 | Pending |
+| RELAY-04 | Phase 4 | Pending |
+| RELAY-05 | Phase 4 | Pending |
+| CLIENT-01 | Phase 5 | Pending |
+| CLIENT-02 | Phase 5 | Pending |
+| CLIENT-03 | Phase 5 | Pending |
+| CLIENT-04 | Phase 5 | Pending |
+| CLIENT-05 | Phase 5 | Pending |
+| CLIENT-06 | Phase 5 | Pending |
+| CLIENT-07 | Phase 5 | Pending |
+| CLIENT-08 | Phase 5 | Pending |
+| CLIENT-09 | Phase 5 | Pending |
+| CLIENT-10 | Phase 5 | Pending |
+| CLIENT-11 | Phase 5 | Pending |
+| CLIENT-12 | Phase 5 | Pending |
+| CLIENT-13 | Phase 5 | Pending |
+| SHELL-01 | Phase 6 | Pending |
+| SHELL-02 | Phase 6 | Pending |
+| SHELL-03 | Phase 6 | Pending |
+| SHELL-04 | Phase 6 | Pending |
+| SHELL-05 | Phase 6 | Pending |
+| SHELL-06 | Phase 6 | Pending |
+| SHELL-07 | Phase 6 | Pending |
+| SHELL-08 | Phase 6 | Pending |
+| SHELL-09 | Phase 6 | Pending |
+| WEB-01 | Phase 7 | Pending |
+| WEB-02 | Phase 7 | Pending |
+| WEB-03 | Phase 7 | Pending |
+| WEB-04 | Phase 7 | Pending |
+| WEB-05 | Phase 7 | Pending |
+| WEB-06 | Phase 7 | Pending |
+| WEB-07 | Phase 7 | Pending |
+| WEB-08 | Phase 7 | Pending |
+| WEB-09 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
+- v2.0 requirements: 36 total
+- Mapped to phases: 36
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-02-04*
-*Last updated: 2026-02-04 after roadmap creation*
+*Requirements defined: 2026-02-06*
+*Last updated: 2026-02-06 after milestone v2.0 scoping*
