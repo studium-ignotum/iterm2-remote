@@ -9,6 +9,7 @@ set -g _TERMINAL_REMOTE_PID %self
 set -g _TERMINAL_REMOTE_BG_PID ""
 set -g _TERMINAL_REMOTE_WATCHER_PID ""
 set -g _TERMINAL_REMOTE_WARNED 0
+set -g _TERMINAL_REMOTE_FIFO ""
 
 # Generate session name: "dirname [PID]"
 function _terminal_remote_session_name
@@ -28,11 +29,15 @@ function _terminal_remote_connect
   set -l name (_terminal_remote_json_escape (_terminal_remote_session_name))
   set -l msg "{\"name\":\"$name\",\"shell\":\"fish\",\"pid\":$_TERMINAL_REMOTE_PID}"
 
-  # Background process: send registration and keep connection open
-  # The 'cat' blocks forever, keeping nc alive until killed
+  # Create a FIFO for sending additional messages through the connection
+  set -g _TERMINAL_REMOTE_FIFO "/tmp/terminal-remote-fifo-$_TERMINAL_REMOTE_PID"
+  rm -f "$_TERMINAL_REMOTE_FIFO"
+  mkfifo "$_TERMINAL_REMOTE_FIFO" 2>/dev/null; or return 1
+
+  # Background process: send registration, then read from FIFO for additional messages
   begin
     echo $msg
-    cat  # Block to keep connection open
+    cat "$_TERMINAL_REMOTE_FIFO"  # Read from FIFO, blocks until EOF
   end | nc -U "$_TERMINAL_REMOTE_SOCKET" 2>/dev/null &
   set -g _TERMINAL_REMOTE_BG_PID (jobs -lp | tail -1)
   disown $_TERMINAL_REMOTE_BG_PID 2>/dev/null
@@ -47,17 +52,21 @@ function _terminal_remote_connect
   else
     set -g _TERMINAL_REMOTE_CONNECTED 0
     set -g _TERMINAL_REMOTE_BG_PID ""
+    rm -f "$_TERMINAL_REMOTE_FIFO"
+    set -g _TERMINAL_REMOTE_FIFO ""
   end
 end
 
-# Send directory rename update (fire-and-forget)
+# Send directory rename update through existing connection
 function _terminal_remote_send_update
+  # Only send if we have an active FIFO
+  test -p "$_TERMINAL_REMOTE_FIFO"; or return 0
+
   set -l name (_terminal_remote_json_escape (_terminal_remote_session_name))
   set -l msg "{\"type\":\"rename\",\"name\":\"$name\"}"
 
-  # Send via a quick connection, don't wait for response
-  echo $msg | nc -U "$_TERMINAL_REMOTE_SOCKET" 2>/dev/null &
-  disown (jobs -lp | tail -1) 2>/dev/null
+  # Write to FIFO (goes through existing connection)
+  echo $msg >> "$_TERMINAL_REMOTE_FIFO" 2>/dev/null
 end
 
 # Directory change hook (fires when PWD changes)
@@ -124,6 +133,10 @@ function _terminal_remote_cleanup --on-event fish_exit
   # Kill watcher
   if test -n "$_TERMINAL_REMOTE_WATCHER_PID"
     kill $_TERMINAL_REMOTE_WATCHER_PID 2>/dev/null
+  end
+  # Remove FIFO
+  if test -n "$_TERMINAL_REMOTE_FIFO"
+    rm -f "$_TERMINAL_REMOTE_FIFO"
   end
 end
 

@@ -9,6 +9,7 @@ _TERMINAL_REMOTE_BG_PID=""
 _TERMINAL_REMOTE_WATCHER_PID=""
 _TERMINAL_REMOTE_WARNED=0
 _TERMINAL_REMOTE_PREVPWD="$PWD"
+_TERMINAL_REMOTE_FIFO=""
 
 # Generate session name: "dirname [PID]"
 _terminal_remote_session_name() {
@@ -31,11 +32,15 @@ _terminal_remote_connect() {
   name=$(_terminal_remote_json_escape "$(_terminal_remote_session_name)")
   local msg="{\"name\":\"${name}\",\"shell\":\"bash\",\"pid\":$$}"
 
-  # Background process: send registration and keep connection open
-  # The 'cat' blocks forever, keeping nc alive until killed
+  # Create a FIFO for sending additional messages through the connection
+  _TERMINAL_REMOTE_FIFO="/tmp/terminal-remote-fifo-$$"
+  rm -f "$_TERMINAL_REMOTE_FIFO"
+  mkfifo "$_TERMINAL_REMOTE_FIFO" 2>/dev/null || return 1
+
+  # Background process: send registration, then read from FIFO for additional messages
   (
     echo "$msg"
-    cat  # Block to keep connection open
+    cat "$_TERMINAL_REMOTE_FIFO"  # Read from FIFO, blocks until EOF
   ) | nc -U "$_TERMINAL_REMOTE_SOCKET" 2>/dev/null &
   _TERMINAL_REMOTE_BG_PID=$!
   disown "$_TERMINAL_REMOTE_BG_PID" 2>/dev/null
@@ -50,18 +55,22 @@ _terminal_remote_connect() {
   else
     _TERMINAL_REMOTE_CONNECTED=0
     _TERMINAL_REMOTE_BG_PID=""
+    rm -f "$_TERMINAL_REMOTE_FIFO"
+    _TERMINAL_REMOTE_FIFO=""
   fi
 }
 
-# Send directory rename update (fire-and-forget)
+# Send directory rename update through existing connection
 _terminal_remote_send_update() {
+  # Only send if we have an active FIFO
+  [[ -p "$_TERMINAL_REMOTE_FIFO" ]] || return 0
+
   local name
   name=$(_terminal_remote_json_escape "$(_terminal_remote_session_name)")
   local msg="{\"type\":\"rename\",\"name\":\"${name}\"}"
 
-  # Send via a quick connection, don't wait for response
-  echo "$msg" | nc -U "$_TERMINAL_REMOTE_SOCKET" 2>/dev/null &
-  disown $! 2>/dev/null
+  # Write to FIFO (goes through existing connection)
+  echo "$msg" >> "$_TERMINAL_REMOTE_FIFO" 2>/dev/null
 }
 
 # Directory change detection (called in PROMPT_COMMAND)
@@ -130,6 +139,8 @@ _terminal_remote_cleanup() {
   [[ -n "$_TERMINAL_REMOTE_BG_PID" ]] && kill "$_TERMINAL_REMOTE_BG_PID" 2>/dev/null
   # Kill watcher
   [[ -n "$_TERMINAL_REMOTE_WATCHER_PID" ]] && kill "$_TERMINAL_REMOTE_WATCHER_PID" 2>/dev/null
+  # Remove FIFO
+  [[ -n "$_TERMINAL_REMOTE_FIFO" ]] && rm -f "$_TERMINAL_REMOTE_FIFO"
 }
 
 # Initialize connection on script load
