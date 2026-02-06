@@ -136,6 +136,7 @@ Plans:
 **Goal**: Browser users can view and interact with any connected terminal
 **Depends on**: Phase 4, Phase 5, Phase 6
 **Requirements**: WEB-01, WEB-02, WEB-03, WEB-04, WEB-05, WEB-06, WEB-07, WEB-08, WEB-09
+**Plans:** 3 plans in 3 waves
 **Success Criteria** (what must be TRUE):
   1. User enters session code and sees list of connected terminals
   2. Selecting a terminal shows real-time output (colors, cursor, escape sequences)
@@ -144,7 +145,9 @@ Plans:
   5. User can switch between multiple terminal sessions
 
 Plans:
-- [ ] 07-01-PLAN.md -- TBD
+- [ ] 07-01-PLAN.md -- Protocol & binary frame utilities (Wave 1)
+- [ ] 07-02-PLAN.md -- Connection & binary WebSocket integration (Wave 2)
+- [ ] 07-03-PLAN.md -- Build configuration & end-to-end verification (Wave 3)
 
 ## Progress
 
@@ -159,7 +162,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. Relay Server | 4/4 | Complete | 2026-02-06 |
 | 5. Mac Client | 6/6 | Complete | 2026-02-06 |
 | 6. Shell Integration | 2/2 | Complete | 2026-02-06 |
-| 7. Web UI & Full Pipeline | 0/? | Ready to plan | - |
+| 7. Web UI & Full Pipeline | 0/3 | Planned | - |
 
 ---
 *Created: 2026-02-04*
