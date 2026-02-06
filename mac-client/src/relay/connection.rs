@@ -23,6 +23,12 @@ pub enum RelayEvent {
     Error(String),
     /// Terminal data received from relay (browser input -> shell)
     TerminalData { session_id: String, data: Vec<u8> },
+    /// Resize request from browser
+    Resize { session_id: String, cols: u16, rows: u16 },
+    /// Close session request from browser
+    CloseSession { session_id: String },
+    /// Create new session request from browser
+    CreateSession,
 }
 
 /// Commands sent to RelayClient for sending data to relay.
@@ -30,6 +36,14 @@ pub enum RelayEvent {
 pub enum RelayCommand {
     /// Send terminal data to relay (shell output -> browser)
     SendTerminalData { session_id: String, data: Vec<u8> },
+    /// Send session list to relay (for browser)
+    SendSessionList { sessions: Vec<(String, String)> }, // (id, name)
+    /// Notify relay that a session connected
+    SendSessionConnected { session_id: String, name: String },
+    /// Notify relay that a session disconnected
+    SendSessionDisconnected { session_id: String },
+    /// Disconnect and reconnect to get a new session code
+    Reconnect,
 }
 
 /// WebSocket client for connecting to the relay server.
@@ -162,6 +176,39 @@ impl RelayClient {
                                 tracing::warn!("Failed to send terminal data: {}", e);
                             }
                         }
+                        Some(RelayCommand::SendSessionList { sessions }) => {
+                            let msg = ControlMessage::SessionList {
+                                sessions: sessions.into_iter().map(|(id, name)| {
+                                    crate::protocol::SessionInfo { id, name }
+                                }).collect(),
+                            };
+                            let json = serde_json::to_string(&msg).unwrap();
+                            tracing::debug!("Sending SessionList: {}", json);
+                            if let Err(e) = write.send(Message::Text(json.into())).await {
+                                tracing::warn!("Failed to send session list: {}", e);
+                            }
+                        }
+                        Some(RelayCommand::SendSessionConnected { session_id, name }) => {
+                            let msg = ControlMessage::SessionConnected { session_id, name };
+                            let json = serde_json::to_string(&msg).unwrap();
+                            tracing::debug!("Sending SessionConnected: {}", json);
+                            if let Err(e) = write.send(Message::Text(json.into())).await {
+                                tracing::warn!("Failed to send session connected: {}", e);
+                            }
+                        }
+                        Some(RelayCommand::SendSessionDisconnected { session_id }) => {
+                            let msg = ControlMessage::SessionDisconnected { session_id };
+                            let json = serde_json::to_string(&msg).unwrap();
+                            tracing::debug!("Sending SessionDisconnected: {}", json);
+                            if let Err(e) = write.send(Message::Text(json.into())).await {
+                                tracing::warn!("Failed to send session disconnected: {}", e);
+                            }
+                        }
+                        Some(RelayCommand::Reconnect) => {
+                            tracing::info!("Reconnect requested, closing connection");
+                            let _ = write.send(Message::Close(None)).await;
+                            break;
+                        }
                         None => {
                             tracing::info!("Command channel closed");
                             break;
@@ -202,7 +249,10 @@ impl RelayClient {
 
     /// Handle a binary message from the relay server (browser input -> shell).
     ///
-    /// Frame format: 1 byte session_id length + session_id bytes + terminal data
+    /// Frame format: 1 byte session_id length + session_id bytes + payload
+    /// Payload can be either:
+    /// - Raw terminal input (keystrokes)
+    /// - JSON control message (e.g., {"type":"resize","cols":80,"rows":24})
     fn handle_binary_message(&self, data: &[u8]) {
         if data.len() < 2 {
             tracing::warn!("Binary message too short: {} bytes", data.len());
@@ -220,17 +270,53 @@ impl RelayClient {
         }
 
         let session_id = String::from_utf8_lossy(&data[1..1 + id_len]).to_string();
-        let terminal_data = data[1 + id_len..].to_vec();
+        let payload = &data[1 + id_len..];
 
+        // Check if payload is a JSON control message (starts with '{')
+        if payload.first() == Some(&b'{') {
+            if let Ok(text) = std::str::from_utf8(payload) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
+                    let msg_type = json.get("type").and_then(|t| t.as_str());
+
+                    if msg_type == Some("resize") {
+                        if let (Some(cols), Some(rows)) = (
+                            json.get("cols").and_then(|c| c.as_u64()),
+                            json.get("rows").and_then(|r| r.as_u64()),
+                        ) {
+                            tracing::debug!(
+                                "Received resize: session={}, cols={}, rows={}",
+                                session_id,
+                                cols,
+                                rows
+                            );
+                            let _ = self.event_tx.send(RelayEvent::Resize {
+                                session_id,
+                                cols: cols as u16,
+                                rows: rows as u16,
+                            });
+                            return;
+                        }
+                    } else if msg_type == Some("close_session") {
+                        tracing::info!("Received close_session: session={}", session_id);
+                        let _ = self.event_tx.send(RelayEvent::CloseSession {
+                            session_id,
+                        });
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Regular terminal input
         tracing::trace!(
             "Received terminal data: session={}, {} bytes",
             session_id,
-            terminal_data.len()
+            payload.len()
         );
 
         let _ = self.event_tx.send(RelayEvent::TerminalData {
             session_id,
-            data: terminal_data,
+            data: payload.to_vec(),
         });
     }
 
@@ -256,6 +342,10 @@ impl RelayClient {
             ControlMessage::Error { message } => {
                 tracing::error!("Relay error: {}", message);
                 let _ = self.event_tx.send(RelayEvent::Error(message));
+            }
+            ControlMessage::CreateSession => {
+                tracing::info!("Received create_session request from browser");
+                let _ = self.event_tx.send(RelayEvent::CreateSession);
             }
             // Other message types are for browser<->relay communication
             _ => {

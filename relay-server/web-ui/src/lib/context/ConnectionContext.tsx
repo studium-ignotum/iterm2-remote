@@ -304,6 +304,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
           }
 
           // Session events forwarded from mac-client
+          case 'session_list':
           case 'session_connected':
           case 'session_disconnected':
           // Config message

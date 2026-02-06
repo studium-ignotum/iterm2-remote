@@ -1,0 +1,286 @@
+/* ============================================================
+   Mobile Control Bar
+   Design system: ui-ux-pro-max / Terminal Remote
+   Palette: bg #0F172A, surface #1E293B, border #334155,
+            accent #22C55E, text #F8FAFC
+   Touch: 44px min targets, 8px min gap
+   ============================================================ */
+
+.mobile-bar {
+  display: none;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: #0F172A;
+  border-top: 1px solid #334155;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+@media (max-width: 767px) {
+  .mobile-bar { display: flex; }
+}
+@media (pointer: coarse) {
+  .mobile-bar { display: flex; }
+}
+
+/* --- Shared row --- */
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.bar-row + .bar-row {
+  border-top: 1px solid #1E293B;
+}
+
+.bar-sep {
+  width: 1px;
+  height: 24px;
+  background: #334155;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Quick-action buttons — 44px min touch, semantic colors
+   ============================================================ */
+
+.qb {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 200ms ease, background 200ms ease, border-color 200ms ease;
+  background: #1E293B;
+  color: #F8FAFC;
+}
+
+.qb:active {
+  transform: scale(0.93);
+}
+
+.qb:focus-visible {
+  outline: 2px solid #22C55E;
+  outline-offset: 2px;
+}
+
+/* Semantic quick actions */
+.qb-yes {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+  border-color: rgba(34, 197, 94, 0.4);
+  font-size: 16px;
+}
+.qb-yes:active { background: rgba(34, 197, 94, 0.3); }
+
+.qb-no {
+  background: rgba(239, 68, 68, 0.12);
+  color: #F87171;
+  border-color: rgba(239, 68, 68, 0.35);
+  font-size: 16px;
+}
+.qb-no:active { background: rgba(239, 68, 68, 0.25); }
+
+.qb-enter {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60A5FA;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+.qb-enter:active { background: rgba(59, 130, 246, 0.25); }
+
+.qb-cancel {
+  background: rgba(249, 115, 22, 0.12);
+  color: #FB923C;
+  border-color: rgba(249, 115, 22, 0.35);
+}
+.qb-cancel:active { background: rgba(249, 115, 22, 0.25); }
+
+.qb-scroll {
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94A3B8;
+  min-width: 40px;
+}
+.qb-scroll:active { background: #334155; }
+
+.qb-toggle {
+  padding: 0 12px;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: #94A3B8;
+  margin-left: auto;
+}
+
+.qb-toggle.on {
+  background: #22C55E;
+  color: #0F172A;
+  border-color: #22C55E;
+}
+
+/* ============================================================
+   Command input row
+   ============================================================ */
+
+.input-row {
+  gap: 8px;
+  padding: 8px 10px 10px;
+}
+
+.cmd-input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 14px;
+  background: #1E293B;
+  color: #F8FAFC;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  font-size: 16px;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace;
+  outline: none;
+  -webkit-appearance: none;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.cmd-input::placeholder {
+  color: #64748B;
+}
+
+.cmd-input:focus {
+  border-color: #22C55E;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
+.send-btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 22px;
+  background: #22C55E;
+  color: #0F172A;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.send-btn:active {
+  opacity: 0.75;
+  transform: scale(0.96);
+}
+
+.send-btn:focus-visible {
+  outline: 2px solid #F8FAFC;
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Extended keys panel — wrapping grid, 44px min targets
+   ============================================================ */
+
+.extended-row {
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #0c1322;
+  border-bottom: 1px solid #1E293B;
+}
+
+.kb {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1E293B;
+  color: #F8FAFC;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.kb:active {
+  transform: scale(0.93);
+  background: #334155;
+}
+
+.kb:focus-visible {
+  outline: 2px solid #22C55E;
+  outline-offset: 2px;
+}
+
+.kb.mod {
+  font-weight: 600;
+  color: #94A3B8;
+}
+
+.kb.mod.on {
+  background: #22C55E;
+  color: #0F172A;
+  border-color: #22C55E;
+}
+
+.kb.sym {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 16px;
+  min-width: 40px;
+}
+
+.kb.arr {
+  font-size: 12px;
+  min-width: 40px;
+}
+
+/* ============================================================
+   Quick-row: horizontal scroll on narrow screens
+   ============================================================ */
+
+.quick-row {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.quick-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .qb,
+  .kb,
+  .send-btn,
+  .cmd-input {
+    transition: none;
+  }
+  .qb:active,
+  .kb:active,
+  .send-btn:active {
+    transform: none;
+  }
+}

@@ -8,7 +8,7 @@
  * Key features:
  * - Binary data routing via writeUtf8 for efficiency
  * - Data buffering before terminal mounts
- * - Per-session data filtering (only show active session)
+ * - Per-session terminal instances (one xterm per session)
  */
 
 import {
@@ -43,7 +43,6 @@ interface TerminalContextValue {
   /** Write binary data to terminal (used internally by binary handler) */
   writeBinaryData: (sessionId: string, data: Uint8Array) => void;
   getTerminal: (sessionId: string) => Terminal | undefined;
-  clearTerminal: () => void;
 }
 
 const TerminalContext = createContext<TerminalContextValue | null>(null);
@@ -64,26 +63,16 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const terminalsRef = useRef<Map<string, Terminal>>(new Map());
   // Buffer binary data that arrives before terminal mounts (keyed by sessionId)
   const pendingDataRef = useRef<Map<string, Uint8Array[]>>(new Map());
-  // Ref for immediate sync access to active session
-  const activeSessionIdRef = useRef<string | null>(null);
 
   const { registerMessageHandler, registerBinaryHandler } = useConnection();
 
   const setActiveSession = useCallback((sessionId: string | null) => {
-    activeSessionIdRef.current = sessionId;
     setActiveSessionId(sessionId);
   }, []);
 
   const applyConfig = useCallback((config: ConfigMessage) => {
     log('applyConfig:', config);
     setOptions(configToXtermOptions(config));
-  }, []);
-
-  const findTerminal = useCallback((): Terminal | undefined => {
-    // Only one Terminal component renders at a time (for active session)
-    const entries = terminalsRef.current.values();
-    const first = entries.next();
-    return first.done ? undefined : first.value;
   }, []);
 
   /**
@@ -117,13 +106,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const writeBinaryData = useCallback((sessionId: string, data: Uint8Array) => {
     log('writeBinaryData:', sessionId, 'len:', data.length);
 
-    // Filter: only write data for the active session
-    if (activeSessionIdRef.current && sessionId !== activeSessionIdRef.current) {
-      log('writeBinaryData: filtered (not active session)');
-      return;
-    }
-
-    const terminal = findTerminal();
+    const terminal = terminalsRef.current.get(sessionId);
     if (terminal) {
       // Use writeUtf8 for binary efficiency (xterm.js 5.x+)
       const termWithUtf8 = terminal as unknown as { writeUtf8?: (data: Uint8Array) => void };
@@ -141,19 +124,11 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       }
       pendingDataRef.current.get(sessionId)!.push(data);
     }
-  }, [findTerminal]);
+  }, []);
 
   const getTerminal = useCallback((sessionId: string) => {
     return terminalsRef.current.get(sessionId);
   }, []);
-
-  const clearTerminal = useCallback(() => {
-    const terminal = findTerminal();
-    if (terminal) {
-      terminal.reset();
-    }
-    pendingDataRef.current.clear();
-  }, [findTerminal]);
 
   // ---------------------------------------------------------------------------
   // Binary Handler - route binary terminal data
@@ -197,7 +172,6 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     unregisterTerminal,
     writeBinaryData,
     getTerminal,
-    clearTerminal,
   };
 
   return (

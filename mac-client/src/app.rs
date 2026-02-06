@@ -25,6 +25,10 @@ pub enum UiEvent {
     /// Error from relay
     RelayError(String),
 
+    // From cloudflared tunnel
+    /// Tunnel URL is available
+    TunnelUrl(String),
+
     // From IPC
     /// A shell session connected via IPC
     ShellConnected { session_id: String, name: String },
@@ -53,6 +57,8 @@ pub enum BackgroundCommand {
     SendTerminalData { session_id: String, data: Vec<u8> },
     /// Send terminal data to shell (browser -> shell)
     SendToShell { session_id: String, data: Vec<u8> },
+    /// Reconnect to relay to get a new session code
+    ReconnectRelay,
 }
 
 /// Application state holding current values and menu item references.
@@ -68,6 +74,8 @@ pub struct AppState {
     pub shell_count: usize,
     /// Number of connected browsers
     pub browser_count: usize,
+    /// Current tunnel URL (None if not yet available)
+    pub tunnel_url: Option<String>,
 
     // Menu items that need dynamic updates
     /// Display item showing session code
@@ -76,7 +84,9 @@ pub struct AppState {
     pub status_item: MenuItem,
     /// Display item showing session count
     pub count_item: MenuItem,
-    /// Action item for copying code (text changes for confirmation)
+    /// Display item showing tunnel URL
+    pub url_item: MenuItem,
+    /// Action item for copying URL (text changes for confirmation)
     pub copy_item: MenuItem,
 }
 
@@ -86,6 +96,7 @@ impl AppState {
         code_item: MenuItem,
         status_item: MenuItem,
         count_item: MenuItem,
+        url_item: MenuItem,
         copy_item: MenuItem,
     ) -> Self {
         Self {
@@ -93,9 +104,11 @@ impl AppState {
             relay_connected: false,
             shell_count: 0,
             browser_count: 0,
+            tunnel_url: None,
             code_item,
             status_item,
             count_item,
+            url_item,
             copy_item,
         }
     }
@@ -124,6 +137,15 @@ impl AppState {
         self.count_item
             .set_text(format!("Sessions: {}", self.shell_count));
     }
+
+    /// Update the tunnel URL display menu item.
+    pub fn update_url_display(&self) {
+        let display = match &self.tunnel_url {
+            Some(url) => format!("URL: {}", url),
+            None => "URL: starting tunnel...".to_string(),
+        };
+        self.url_item.set_text(display);
+    }
 }
 
 #[cfg(test)]
@@ -139,6 +161,7 @@ mod tests {
         let _browser_conn = UiEvent::BrowserConnected("browser-id".into());
         let _browser_disc = UiEvent::BrowserDisconnected("browser-id".into());
         let _relay_error = UiEvent::RelayError("test error".into());
+        let _tunnel_url = UiEvent::TunnelUrl("https://example.trycloudflare.com".into());
         let _shell_conn = UiEvent::ShellConnected {
             session_id: "sess-1".into(),
             name: "zsh".into(),

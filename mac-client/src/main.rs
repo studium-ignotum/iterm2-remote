@@ -9,11 +9,12 @@
 use image::ImageReader;
 use mac_client::app::{AppState, BackgroundCommand, UiEvent};
 use mac_client::ipc::{IpcCommand, IpcEvent, IpcServer};
-use mac_client::pty::{PtyCommand, PtyEvent, PtyManager};
+use mac_client::tmux::{TmuxCommand, TmuxEvent, TmuxManager};
 use mac_client::relay::{RelayClient, RelayCommand, RelayEvent};
 use muda::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use smappservice_rs::{AppService, ServiceStatus, ServiceType};
-use std::io::Cursor;
+use std::io::{BufRead, BufReader, Cursor};
+use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -26,7 +27,8 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::WindowId;
 
 // Menu item IDs
-const ID_NEW_TERMINAL: &str = "new_terminal";
+const ID_REGEN_CODE: &str = "regen_code";
+const ID_COPY_URL: &str = "copy_url";
 const ID_COPY_CODE: &str = "copy_code";
 const ID_LOGIN_ITEM: &str = "login_item";
 const ID_QUIT: &str = "quit";
@@ -47,7 +49,7 @@ struct App {
     ui_rx: Option<mpsc::Receiver<UiEvent>>,
     bg_handle: Option<thread::JoinHandle<()>>,
     copy_reset_time: Option<Instant>,
-    pty_cmd_tx: Option<tokio::sync::mpsc::UnboundedSender<PtyCommand>>,
+    tmux_cmd_tx: Option<tokio::sync::mpsc::UnboundedSender<TmuxCommand>>,
 }
 
 impl App {
@@ -60,7 +62,7 @@ impl App {
             ui_rx: None,
             bg_handle: None,
             copy_reset_time: None,
-            pty_cmd_tx: None,
+            tmux_cmd_tx: None,
         }
     }
 
@@ -68,38 +70,31 @@ impl App {
         debug!("Menu event: {:?}", event);
 
         match event.id().0.as_str() {
-            ID_NEW_TERMINAL => {
-                info!("New terminal requested");
-                if let Some(pty_tx) = &self.pty_cmd_tx {
-                    if pty_tx.send(PtyCommand::SpawnShell).is_err() {
-                        error!("Failed to send spawn shell command");
+            ID_REGEN_CODE => {
+                info!("Regenerate session code requested");
+                if let Some(bg_tx) = &self.bg_tx {
+                    let _ = bg_tx.send(BackgroundCommand::ReconnectRelay);
+                }
+            }
+            ID_COPY_URL => {
+                if let Some(app_state) = &self.app_state {
+                    if let Some(url) = &app_state.tunnel_url {
+                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                            if clipboard.set_text(url.clone()).is_ok() {
+                                info!("Tunnel URL copied to clipboard: {}", url);
+                            }
+                        }
                     }
-                } else {
-                    warn!("PTY command channel not available");
                 }
             }
             ID_COPY_CODE => {
                 if let Some(app_state) = &self.app_state {
                     if let Some(code) = &app_state.session_code {
-                        match arboard::Clipboard::new() {
-                            Ok(mut clipboard) => {
-                                if let Err(e) = clipboard.set_text(code.clone()) {
-                                    error!("Failed to set clipboard: {}", e);
-                                } else {
-                                    info!("Session code copied to clipboard: {}", code);
-                                    if let Some(app_state) = &self.app_state {
-                                        app_state.copy_item.set_text("Copied!");
-                                    }
-                                    self.copy_reset_time =
-                                        Some(Instant::now() + Duration::from_secs(2));
-                                }
-                            }
-                            Err(e) => {
-                                error!("Failed to access clipboard: {}", e);
+                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                            if clipboard.set_text(code.clone()).is_ok() {
+                                info!("Session code copied to clipboard: {}", code);
                             }
                         }
-                    } else {
-                        warn!("Copy requested but no session code available");
                     }
                 }
             }
@@ -171,6 +166,11 @@ impl App {
                             info!("Browser disconnected: {}", browser_id);
                             app_state.browser_count = app_state.browser_count.saturating_sub(1);
                         }
+                        UiEvent::TunnelUrl(url) => {
+                            info!("Tunnel URL: {}", url);
+                            app_state.tunnel_url = Some(url);
+                            app_state.update_url_display();
+                        }
                         UiEvent::RelayError(msg) => {
                             error!("Relay error: {}", msg);
                         }
@@ -218,7 +218,7 @@ impl App {
         if let Some(reset_time) = self.copy_reset_time {
             if Instant::now() >= reset_time {
                 if let Some(app_state) = &self.app_state {
-                    app_state.copy_item.set_text("Copy Session Code");
+                    app_state.copy_item.set_text("Copy URL");
                 }
                 self.copy_reset_time = None;
             }
@@ -305,13 +305,13 @@ fn main() {
     let (ui_tx, ui_rx) = mpsc::channel::<UiEvent>();
     let (bg_tx, bg_rx) = mpsc::channel::<BackgroundCommand>();
 
-    // Create PTY command channel (sender stays in main thread)
-    let (pty_cmd_tx, pty_cmd_rx) = tokio::sync::mpsc::unbounded_channel::<PtyCommand>();
+    // Create tmux command channel (sender stays in main thread)
+    let (tmux_cmd_tx, tmux_cmd_rx) = tokio::sync::mpsc::unbounded_channel::<TmuxCommand>();
 
     // Spawn background thread with Tokio runtime
     let ui_tx_bg = ui_tx.clone();
     let bg_handle = thread::spawn(move || {
-        run_background_tasks(ui_tx_bg, bg_rx, pty_cmd_rx);
+        run_background_tasks(ui_tx_bg, bg_rx, tmux_cmd_rx);
     });
 
     // Load icon from embedded bytes
@@ -332,12 +332,14 @@ fn main() {
     let menu = Menu::new();
 
     // Status display items (disabled - for display only)
+    let url_item = MenuItem::new("URL: starting tunnel...", false, None);
     let code_item = MenuItem::new("Code: ------", false, None);
     let status_item = MenuItem::new("Status: Connecting...", false, None);
     let sessions_item = MenuItem::new("Sessions: 0", false, None);
 
     // Action items
-    let new_terminal_item = MenuItem::with_id(ID_NEW_TERMINAL, "New Terminal", true, None);
+    let regen_code_item = MenuItem::with_id(ID_REGEN_CODE, "Regenerate Code", true, None);
+    let copy_url_item = MenuItem::with_id(ID_COPY_URL, "Copy URL", true, None);
     let copy_code_item = MenuItem::with_id(ID_COPY_CODE, "Copy Session Code", true, None);
 
     // Check current login item status and set initial checkbox state
@@ -349,6 +351,7 @@ fn main() {
     let quit_item = MenuItem::with_id(ID_QUIT, "Quit", true, None);
 
     // Assemble menu
+    menu.append(&url_item).expect("Failed to add url item");
     menu.append(&code_item).expect("Failed to add code item");
     menu.append(&status_item)
         .expect("Failed to add status item");
@@ -356,10 +359,12 @@ fn main() {
         .expect("Failed to add sessions item");
     menu.append(&PredefinedMenuItem::separator())
         .expect("Failed to add separator");
-    menu.append(&new_terminal_item)
-        .expect("Failed to add new terminal item");
+    menu.append(&copy_url_item)
+        .expect("Failed to add copy url item");
     menu.append(&copy_code_item)
-        .expect("Failed to add copy item");
+        .expect("Failed to add copy code item");
+    menu.append(&regen_code_item)
+        .expect("Failed to add regen code item");
     menu.append(&PredefinedMenuItem::separator())
         .expect("Failed to add separator");
     menu.append(&login_item)
@@ -375,7 +380,8 @@ fn main() {
         code_item,
         status_item,
         sessions_item,
-        copy_code_item.clone(),
+        url_item,
+        copy_url_item.clone(),
     );
 
     // Create tray icon
@@ -397,7 +403,7 @@ fn main() {
     app.bg_tx = Some(bg_tx);
     app.ui_rx = Some(ui_rx);
     app.bg_handle = Some(bg_handle);
-    app.pty_cmd_tx = Some(pty_cmd_tx);
+    app.tmux_cmd_tx = Some(tmux_cmd_tx);
 
     info!("Entering main event loop");
 
@@ -450,11 +456,11 @@ fn configure_login_item(enable: bool) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-/// Run background tasks (relay client, IPC server, and PTY manager) on a Tokio runtime.
+/// Run background tasks (relay client, IPC server, and tmux manager) on a Tokio runtime.
 fn run_background_tasks(
     ui_tx: mpsc::Sender<UiEvent>,
     bg_rx: mpsc::Receiver<BackgroundCommand>,
-    pty_cmd_rx: tokio::sync::mpsc::UnboundedReceiver<PtyCommand>,
+    tmux_cmd_rx: tokio::sync::mpsc::UnboundedReceiver<TmuxCommand>,
 ) {
     info!("Background thread starting");
 
@@ -479,51 +485,98 @@ fn run_background_tasks(
 
         // Store command senders for data forwarding
         let relay_cmd_tx_for_ipc = relay_cmd_tx.clone();
-        let relay_cmd_tx_for_pty = relay_cmd_tx.clone();
+        let relay_cmd_tx_for_tmux = relay_cmd_tx.clone();
+        let relay_cmd_tx_for_relay = relay_cmd_tx.clone();
         let ipc_cmd_tx_for_relay = ipc_cmd_tx.clone();
 
-        // Create PTY manager
-        let (_pty_manager, mut pty_event_rx, pty_internal_cmd_tx) = PtyManager::new();
+        // Shared session list for browser sync
+        let session_list: std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>> =
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let session_list_for_tmux = session_list.clone();
+        let session_list_for_relay = session_list.clone();
+
+        // Create tmux manager
+        let (_tmux_manager, mut tmux_event_rx, tmux_internal_cmd_tx) = TmuxManager::new();
+
+        // Auto-attach to all existing tmux sessions on startup
+        let _ = tmux_internal_cmd_tx.send(TmuxCommand::AttachAll);
 
         // Clone for relay forwarding (before move)
-        let pty_cmd_tx_for_relay = pty_internal_cmd_tx.clone();
+        let tmux_cmd_tx_for_relay = tmux_internal_cmd_tx.clone();
 
-        // Forward PTY commands from main thread to PTY manager
-        let mut pty_cmd_rx = pty_cmd_rx;
-        let pty_forward_handle = tokio::spawn(async move {
-            while let Some(cmd) = pty_cmd_rx.recv().await {
-                if pty_internal_cmd_tx.send(cmd).is_err() {
+        // Forward tmux commands from main thread to tmux manager
+        let mut tmux_cmd_rx = tmux_cmd_rx;
+        let tmux_forward_handle = tokio::spawn(async move {
+            while let Some(cmd) = tmux_cmd_rx.recv().await {
+                if tmux_internal_cmd_tx.send(cmd).is_err() {
                     break;
                 }
             }
         });
 
-        // Forward PTY events to relay (output -> browser)
-        let ui_tx_pty = ui_tx.clone();
-        let pty_event_handle = tokio::spawn(async move {
-            while let Some(event) = pty_event_rx.recv().await {
+        // Spawn cloudflared tunnel
+        let ui_tx_tunnel = ui_tx.clone();
+        let tunnel_handle = tokio::task::spawn_blocking(move || {
+            run_cloudflared_tunnel(ui_tx_tunnel);
+        });
+
+        // Forward tmux events to relay (output -> browser)
+        let ui_tx_tmux = ui_tx.clone();
+        let tmux_event_handle = tokio::spawn(async move {
+            while let Some(event) = tmux_event_rx.recv().await {
                 match event {
-                    PtyEvent::SessionCreated { session_id, name } => {
-                        info!("PTY session created: {} ({})", name, session_id);
-                        let _ = ui_tx_pty.send(UiEvent::ShellConnected {
+                    TmuxEvent::Attached { session_id, session_name } => {
+                        info!("Attached to tmux session: {} ({})", session_name, session_id);
+                        // Update session list
+                        {
+                            let mut list = session_list_for_tmux.lock().unwrap();
+                            list.push((session_id.clone(), session_name.clone()));
+                        }
+                        // Notify relay to send to browser
+                        let _ = relay_cmd_tx_for_tmux.send(RelayCommand::SendSessionConnected {
                             session_id: session_id.clone(),
-                            name,
+                            name: session_name.clone(),
+                        });
+                        // Notify UI
+                        let _ = ui_tx_tmux.send(UiEvent::ShellConnected {
+                            session_id,
+                            name: session_name,
                         });
                     }
-                    PtyEvent::SessionExited { session_id } => {
-                        info!("PTY session exited: {}", session_id);
-                        let _ = ui_tx_pty.send(UiEvent::ShellDisconnected { session_id });
+                    TmuxEvent::Detached { session_id } => {
+                        info!("Detached from tmux session: {}", session_id);
+                        // Update session list
+                        {
+                            let mut list = session_list_for_tmux.lock().unwrap();
+                            list.retain(|(id, _)| id != &session_id);
+                        }
+                        // Notify relay to send to browser
+                        let _ = relay_cmd_tx_for_tmux.send(RelayCommand::SendSessionDisconnected {
+                            session_id: session_id.clone(),
+                        });
+                        // Notify UI
+                        let _ = ui_tx_tmux.send(UiEvent::ShellDisconnected { session_id });
                     }
-                    PtyEvent::Output { session_id, data } => {
-                        // Forward PTY output to relay for browser
-                        let _ = relay_cmd_tx_for_pty.send(RelayCommand::SendTerminalData {
+                    TmuxEvent::Output { session_id, data } => {
+                        // Forward tmux output to relay for browser
+                        let _ = relay_cmd_tx_for_tmux.send(RelayCommand::SendTerminalData {
                             session_id,
                             data,
                         });
                     }
+                    TmuxEvent::SessionList(sessions) => {
+                        info!("Got {} tmux sessions", sessions.len());
+                    }
+                    TmuxEvent::Error(msg) => {
+                        error!("Tmux error: {}", msg);
+                    }
                 }
             }
         });
+
+        // Create extra clones for fallback case
+        let relay_cmd_tx_fallback = relay_cmd_tx_for_relay.clone();
+        let session_list_fallback = session_list_for_relay.clone();
 
         // Create IPC server
         let mut ipc = match IpcServer::new(ipc_event_tx, ipc_cmd_rx).await {
@@ -531,7 +584,7 @@ fn run_background_tasks(
             Err(e) => {
                 error!("Failed to create IPC server: {}", e);
                 let _ = ui_tx.send(UiEvent::IpcError(format!("Failed to start IPC: {}", e)));
-                // Continue without IPC - relay and PTY still work
+                // Continue without IPC - relay and tmux still work
                 warn!("Continuing without IPC server");
                 // Create a dummy IPC that does nothing
                 let (dummy_tx, dummy_rx) = tokio::sync::mpsc::unbounded_channel::<IpcCommand>();
@@ -541,9 +594,16 @@ fn run_background_tasks(
                 let ipc_handle: tokio::task::JoinHandle<()> = tokio::spawn(async {});
                 let relay_handle = tokio::spawn(async move { relay.run().await; });
                 let ui_tx_relay = ui_tx.clone();
-                let pty_cmd_tx_clone = pty_cmd_tx_for_relay.clone();
+                let tmux_cmd_tx_clone = tmux_cmd_tx_for_relay.clone();
                 let relay_forward_handle = tokio::task::spawn_blocking(move || {
-                    forward_relay_events(relay_event_rx, ui_tx_relay, ipc_cmd_tx_for_relay, pty_cmd_tx_clone);
+                    forward_relay_events(
+                        relay_event_rx,
+                        ui_tx_relay,
+                        ipc_cmd_tx_for_relay,
+                        tmux_cmd_tx_clone,
+                        relay_cmd_tx_fallback,
+                        session_list_fallback,
+                    );
                 });
 
                 // Wait for shutdown
@@ -560,8 +620,9 @@ fn run_background_tasks(
                 relay_handle.abort();
                 ipc_handle.abort();
                 relay_forward_handle.abort();
-                pty_forward_handle.abort();
-                pty_event_handle.abort();
+                tmux_forward_handle.abort();
+                tmux_event_handle.abort();
+                tunnel_handle.abort();
                 return;
             }
         };
@@ -579,7 +640,14 @@ fn run_background_tasks(
         // Spawn event forwarding tasks
         let ui_tx_relay = ui_tx.clone();
         let relay_forward_handle = tokio::task::spawn_blocking(move || {
-            forward_relay_events(relay_event_rx, ui_tx_relay, ipc_cmd_tx_for_relay, pty_cmd_tx_for_relay);
+            forward_relay_events(
+                relay_event_rx,
+                ui_tx_relay,
+                ipc_cmd_tx_for_relay,
+                tmux_cmd_tx_for_relay,
+                relay_cmd_tx_for_relay,
+                session_list_for_relay,
+            );
         });
 
         let ui_tx_ipc = ui_tx.clone();
@@ -602,6 +670,10 @@ fn run_background_tasks(
                     // Forward terminal data to shell via IPC
                     let _ = ipc_cmd_tx.send(IpcCommand::WriteToSession { session_id, data });
                 }
+                Ok(BackgroundCommand::ReconnectRelay) => {
+                    info!("Reconnecting relay to regenerate session code");
+                    let _ = relay_cmd_tx.send(RelayCommand::Reconnect);
+                }
                 Err(mpsc::TryRecvError::Empty) => {
                     // No command, continue
                 }
@@ -618,8 +690,9 @@ fn run_background_tasks(
         ipc_handle.abort();
         relay_forward_handle.abort();
         ipc_forward_handle.abort();
-        pty_forward_handle.abort();
-        pty_event_handle.abort();
+        tmux_forward_handle.abort();
+        tmux_event_handle.abort();
+        tunnel_handle.abort();
 
         info!("Background tasks shut down");
     });
@@ -638,12 +711,15 @@ async fn run_relay_only(
 
     // Create dummy command senders (unused in relay-only mode)
     let (dummy_ipc_tx, _dummy_ipc_rx) = tokio::sync::mpsc::unbounded_channel::<IpcCommand>();
-    let (dummy_pty_tx, _dummy_pty_rx) = tokio::sync::mpsc::unbounded_channel::<PtyCommand>();
+    let (dummy_tmux_tx, _dummy_tmux_rx) = tokio::sync::mpsc::unbounded_channel::<TmuxCommand>();
+    let dummy_session_list: std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
 
     // Create a new relay with the fresh channel
     let relay_url = std::env::var("RELAY_URL")
         .unwrap_or_else(|_| "ws://localhost:3000/ws".to_string());
     let mut relay = RelayClient::new(relay_url, relay_event_tx, relay_cmd_rx);
+    let relay_cmd_tx_clone = relay_cmd_tx.clone();
 
     let relay_handle = tokio::spawn(async move {
         relay.run().await;
@@ -651,7 +727,14 @@ async fn run_relay_only(
 
     let ui_tx_relay = ui_tx.clone();
     let relay_forward_handle = tokio::task::spawn_blocking(move || {
-        forward_relay_events(relay_event_rx, ui_tx_relay, dummy_ipc_tx, dummy_pty_tx);
+        forward_relay_events(
+            relay_event_rx,
+            ui_tx_relay,
+            dummy_ipc_tx,
+            dummy_tmux_tx,
+            relay_cmd_tx_clone,
+            dummy_session_list,
+        );
     });
 
     // Wait for shutdown
@@ -664,6 +747,9 @@ async fn run_relay_only(
             Ok(BackgroundCommand::SendToShell { .. }) => {
                 // IPC not available in relay-only mode
                 warn!("Cannot send to shell: IPC not available");
+            }
+            Ok(BackgroundCommand::ReconnectRelay) => {
+                let _ = relay_cmd_tx.send(RelayCommand::Reconnect);
             }
             Err(mpsc::TryRecvError::Disconnected) => break,
             Err(mpsc::TryRecvError::Empty) => {}
@@ -679,12 +765,14 @@ async fn run_relay_only(
 ///
 /// This runs in a spawn_blocking task because std::sync::mpsc::recv() is blocking.
 /// Converts RelayEvent from the relay module into UiEvent for the main thread.
-/// Also forwards terminal data from relay to IPC and PTY (browser -> shell).
+/// Also forwards terminal data from relay to IPC and tmux (browser -> shell).
 fn forward_relay_events(
     rx: mpsc::Receiver<RelayEvent>,
     ui_tx: mpsc::Sender<UiEvent>,
     ipc_cmd_tx: tokio::sync::mpsc::UnboundedSender<IpcCommand>,
-    pty_cmd_tx: tokio::sync::mpsc::UnboundedSender<PtyCommand>,
+    tmux_cmd_tx: tokio::sync::mpsc::UnboundedSender<TmuxCommand>,
+    relay_cmd_tx: tokio::sync::mpsc::UnboundedSender<RelayCommand>,
+    session_list: std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>>,
 ) {
     debug!("Relay event forwarder starting");
     loop {
@@ -694,7 +782,13 @@ fn forward_relay_events(
                     RelayEvent::Connected => UiEvent::RelayConnected,
                     RelayEvent::Disconnected => UiEvent::RelayDisconnected,
                     RelayEvent::SessionCode(code) => UiEvent::SessionCode(code),
-                    RelayEvent::BrowserConnected(id) => UiEvent::BrowserConnected(id),
+                    RelayEvent::BrowserConnected(id) => {
+                        // Send session list to newly connected browser
+                        let sessions = session_list.lock().unwrap().clone();
+                        info!("Browser connected, sending {} sessions", sessions.len());
+                        let _ = relay_cmd_tx.send(RelayCommand::SendSessionList { sessions });
+                        UiEvent::BrowserConnected(id)
+                    }
                     RelayEvent::BrowserDisconnected(id) => UiEvent::BrowserDisconnected(id),
                     RelayEvent::Error(msg) => UiEvent::RelayError(msg),
                     RelayEvent::TerminalData { session_id, data } => {
@@ -703,12 +797,40 @@ fn forward_relay_events(
                             session_id: session_id.clone(),
                             data: data.clone(),
                         });
-                        // Forward to PTY for PTY sessions
-                        let _ = pty_cmd_tx.send(PtyCommand::Write {
+                        // Forward to tmux for attached sessions
+                        let _ = tmux_cmd_tx.send(TmuxCommand::Write {
                             session_id: session_id.clone(),
                             data: data.clone(),
                         });
                         UiEvent::TerminalDataFromRelay { session_id, data }
+                    }
+                    RelayEvent::Resize { session_id, cols, rows } => {
+                        // Forward resize to tmux
+                        let _ = tmux_cmd_tx.send(TmuxCommand::Resize {
+                            session_id: session_id.clone(),
+                            cols,
+                            rows,
+                        });
+                        // Force refresh to redraw content (fixes initial load blank screen)
+                        let _ = tmux_cmd_tx.send(TmuxCommand::Refresh {
+                            session_id,
+                        });
+                        // No UI event for resize
+                        continue;
+                    }
+                    RelayEvent::CloseSession { session_id } => {
+                        // Kill the tmux session
+                        info!("Closing session: {}", session_id);
+                        let _ = tmux_cmd_tx.send(TmuxCommand::KillSessionById {
+                            session_id: session_id.clone(),
+                        });
+                        // No UI event - session will emit Detached event
+                        continue;
+                    }
+                    RelayEvent::CreateSession => {
+                        info!("Creating new session from browser request");
+                        let _ = tmux_cmd_tx.send(TmuxCommand::NewSession { name: None });
+                        continue;
                     }
                 };
                 if ui_tx.send(ui_event).is_err() {
@@ -723,6 +845,69 @@ fn forward_relay_events(
         }
     }
     debug!("Relay event forwarder exiting");
+}
+
+/// Spawn cloudflared tunnel and parse the URL from stderr.
+///
+/// Returns the child process handle so it can be killed on shutdown.
+/// Sends UiEvent::TunnelUrl when the tunnel URL is found.
+fn run_cloudflared_tunnel(ui_tx: mpsc::Sender<UiEvent>) -> Option<Child> {
+    let mut child = match Command::new("cloudflared")
+        .args(["tunnel", "--url", "http://localhost:3000"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(e) => {
+            error!("Failed to spawn cloudflared: {}", e);
+            let _ = ui_tx.send(UiEvent::RelayError(format!("cloudflared not found: {}", e)));
+            return None;
+        }
+    };
+
+    info!("cloudflared tunnel started (pid {})", child.id());
+
+    let stderr = child.stderr.take().expect("stderr was piped");
+    let reader = BufReader::new(stderr);
+
+    for line in reader.lines() {
+        match line {
+            Ok(line) => {
+                // Look for the tunnel URL in cloudflared output
+                if let Some(url) = extract_tunnel_url(&line) {
+                    info!("Tunnel URL found: {}", url);
+                    let _ = ui_tx.send(UiEvent::TunnelUrl(url));
+                } else {
+                    debug!("cloudflared: {}", line);
+                }
+            }
+            Err(e) => {
+                error!("Error reading cloudflared stderr: {}", e);
+                break;
+            }
+        }
+    }
+
+    // Process exited (stderr closed)
+    match child.wait() {
+        Ok(status) => warn!("cloudflared exited with status: {}", status),
+        Err(e) => error!("Error waiting for cloudflared: {}", e),
+    }
+
+    None
+}
+
+/// Extract a trycloudflare.com URL from a log line.
+fn extract_tunnel_url(line: &str) -> Option<String> {
+    // cloudflared prints the URL in a line like:
+    // ... | https://something-something.trycloudflare.com
+    for word in line.split_whitespace() {
+        if word.starts_with("https://") && word.contains("trycloudflare.com") {
+            return Some(word.to_string());
+        }
+    }
+    None
 }
 
 /// Forward IPC events to the UI channel.
