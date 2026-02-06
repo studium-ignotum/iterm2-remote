@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 7 - Web UI & Full Pipeline (1/3 plans complete)
-Plan: 07-01 complete
+Phase: 7 - Web UI & Full Pipeline (2/3 plans complete)
+Plan: 07-02 complete
 Status: In progress
-Last activity: 2026-02-06 -- Completed 07-01-PLAN.md (Binary Protocol)
+Last activity: 2026-02-06 -- Completed 07-02-PLAN.md (WebSocket Context Refactor)
 
-Progress: [###-------] 33% (phase 7)
+Progress: [######----] 66% (phase 7)
 
 ## v2.0 Overview
 
@@ -25,7 +25,7 @@ Four phases delivering a complete Rust rewrite with universal terminal support:
 | 4 | Relay Server | 5 (RELAY) | COMPLETE (4/4 plans) |
 | 5 | Mac Client | 13 (CLIENT) | COMPLETE (6/6 plans) |
 | 6 | Shell Integration | 9 (SHELL) | COMPLETE (2/2 plans) |
-| 7 | Web UI & Full Pipeline | 9 (WEB) | IN PROGRESS (1/3 plans) |
+| 7 | Web UI & Full Pipeline | 9 (WEB) | IN PROGRESS (2/3 plans) |
 
 ## v1.0 Summary (Node.js/SvelteKit)
 
@@ -100,6 +100,11 @@ Phase 3 (performance) deferred -- starting v2.0 Rust rewrite instead.
 | 1-byte length prefix for binary frames | Simple framing, max 255-byte session IDs | 07-01 |
 | snake_case auth message fields | Match Rust serde(rename_all = "snake_case") | 07-01 |
 | Keep v1 Join/Joined messages | Backwards compatibility during transition | 07-01 |
+| WebSocket endpoint /ws | Matches Rust relay endpoint | 07-02 |
+| Sessions from binary frames | Discover sessions when first binary data arrives | 07-02 |
+| Auto-switch first session | Automatically select first arriving session | 07-02 |
+| 5-second disconnect removal | Show disconnected briefly, then remove from list | 07-02 |
+| writeUtf8 for terminal data | Efficient binary writes in xterm.js 5.x | 07-02 |
 
 ### v2.0 Stack (from research)
 
@@ -128,6 +133,6 @@ None -- Shell integration installed and verified working with mac-client.
 
 ## Session Continuity
 
-Last session: 2026-02-06T06:36:00Z
-Stopped at: Completed 07-01-PLAN.md (Binary Protocol)
-Resume file: .planning/phases/07-web-ui-full-pipeline/07-02-PLAN.md
+Last session: 2026-02-06T06:42:30Z
+Stopped at: Completed 07-02-PLAN.md (WebSocket Context Refactor)
+Resume file: .planning/phases/07-web-ui-full-pipeline/07-03-PLAN.md
