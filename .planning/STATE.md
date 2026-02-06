@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 5 - Mac Client (6/6 plans complete)
-Plan: 06 complete
-Status: Phase complete
-Last activity: 2026-02-05 -- Completed 05-06-PLAN.md (Terminal Data Forwarding)
+Phase: 6 - Shell Integration (1/3 plans complete)
+Plan: 01 complete
+Status: In progress
+Last activity: 2026-02-06 -- Completed 06-01-PLAN.md (Shell Integration Scripts)
 
-Progress: [##########] 100% (phase 5)
+Progress: [###-------] 33% (phase 6)
 
 ## v2.0 Overview
 
@@ -24,7 +24,7 @@ Four phases delivering a complete Rust rewrite with universal terminal support:
 |-------|------|--------------|--------|
 | 4 | Relay Server | 5 (RELAY) | COMPLETE (4/4 plans) |
 | 5 | Mac Client | 13 (CLIENT) | COMPLETE (6/6 plans) |
-| 6 | Shell Integration | 9 (SHELL) | Ready to start |
+| 6 | Shell Integration | 9 (SHELL) | IN PROGRESS (1/3 plans) |
 | 7 | Web UI & Full Pipeline | 9 (WEB) | Blocked by Phase 6 |
 
 ## v1.0 Summary (Node.js/SvelteKit)
@@ -91,6 +91,10 @@ Phase 3 (performance) deferred -- starting v2.0 Rust rewrite instead.
 | TrayIconEvent::set_event_handler bridging | Forward tray events to winit via EventLoopProxy | 05-05 |
 | LSUIElement=true for menu bar app | Info.plist key hides app from Dock | 05-05 |
 | SMAppService for login items | macOS 13+ API for register/unregister at login | 05-05 |
+| nc -U for shell socket communication | Portable across all shells, no external dependencies | 06-01 |
+| Background cat to hold socket open | Keeps nc connection alive until explicitly killed | 06-01 |
+| Session name format: dirname [PID] | Human-readable, unique per shell instance | 06-01 |
+| Prompt hooks for reconnection | Lightweight check every prompt vs dedicated thread | 06-01 |
 
 ### v2.0 Stack (from research)
 
@@ -115,10 +119,10 @@ None.
 
 ### Blockers/Concerns
 
-None -- Mac client complete, ready for shell integration.
+None -- Shell integration scripts created, ready for installation and testing.
 
 ## Session Continuity
 
-Last session: 2026-02-06T05:00:00Z
-Stopped at: Completed 05-05-PLAN.md (App Bundle & Login Item) with winit fix
-Resume file: .planning/phases/06-shell-integration/
+Last session: 2026-02-06T05:16:00Z
+Stopped at: Completed 06-01-PLAN.md (Shell Integration Scripts)
+Resume file: .planning/phases/06-shell-integration/06-02-PLAN.md
