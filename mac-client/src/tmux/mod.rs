@@ -71,7 +71,6 @@ pub enum TmuxCommand {
 /// Manages tmux sessions and provides remote access.
 pub struct TmuxManager {
     sessions: Arc<Mutex<HashMap<String, AttachedSession>>>,
-    event_tx: mpsc::UnboundedSender<TmuxEvent>,
     #[allow(dead_code)]
     command_tx: mpsc::UnboundedSender<TmuxCommand>,
 }
@@ -92,7 +91,6 @@ impl TmuxManager {
 
         let manager = Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
-            event_tx: event_tx.clone(),
             command_tx: command_tx.clone(),
         };
 

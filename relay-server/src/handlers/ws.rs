@@ -89,7 +89,7 @@ async fn handle_mac_client(
     let (mac_tx, mut mac_rx) = mpsc::channel::<MacMessage>(1000);
 
     // Register and get session code
-    let code = state.register_mac_client(client_id.clone(), mac_tx);
+    let code = state.register_mac_client(mac_tx);
 
     // Send registration confirmation
     let response = ControlMessage::Registered { code: code.clone() };

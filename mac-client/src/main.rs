@@ -700,66 +700,6 @@ fn run_background_tasks(
     info!("Background thread exiting");
 }
 
-/// Run only the relay client (fallback if IPC fails to start).
-async fn run_relay_only(
-    _relay: RelayClient,
-    ui_tx: mpsc::Sender<UiEvent>,
-    bg_rx: mpsc::Receiver<BackgroundCommand>,
-) {
-    let (relay_event_tx, relay_event_rx) = mpsc::channel::<RelayEvent>();
-    let (relay_cmd_tx, relay_cmd_rx) = tokio::sync::mpsc::unbounded_channel::<RelayCommand>();
-
-    // Create dummy command senders (unused in relay-only mode)
-    let (dummy_ipc_tx, _dummy_ipc_rx) = tokio::sync::mpsc::unbounded_channel::<IpcCommand>();
-    let (dummy_tmux_tx, _dummy_tmux_rx) = tokio::sync::mpsc::unbounded_channel::<TmuxCommand>();
-    let dummy_session_list: std::sync::Arc<std::sync::Mutex<Vec<(String, String)>>> =
-        std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-
-    // Create a new relay with the fresh channel
-    let relay_url = std::env::var("RELAY_URL")
-        .unwrap_or_else(|_| "ws://localhost:3000/ws".to_string());
-    let mut relay = RelayClient::new(relay_url, relay_event_tx, relay_cmd_rx);
-    let relay_cmd_tx_clone = relay_cmd_tx.clone();
-
-    let relay_handle = tokio::spawn(async move {
-        relay.run().await;
-    });
-
-    let ui_tx_relay = ui_tx.clone();
-    let relay_forward_handle = tokio::task::spawn_blocking(move || {
-        forward_relay_events(
-            relay_event_rx,
-            ui_tx_relay,
-            dummy_ipc_tx,
-            dummy_tmux_tx,
-            relay_cmd_tx_clone,
-            dummy_session_list,
-        );
-    });
-
-    // Wait for shutdown
-    loop {
-        match bg_rx.try_recv() {
-            Ok(BackgroundCommand::Shutdown) => break,
-            Ok(BackgroundCommand::SendTerminalData { session_id, data }) => {
-                let _ = relay_cmd_tx.send(RelayCommand::SendTerminalData { session_id, data });
-            }
-            Ok(BackgroundCommand::SendToShell { .. }) => {
-                // IPC not available in relay-only mode
-                warn!("Cannot send to shell: IPC not available");
-            }
-            Ok(BackgroundCommand::ReconnectRelay) => {
-                let _ = relay_cmd_tx.send(RelayCommand::Reconnect);
-            }
-            Err(mpsc::TryRecvError::Disconnected) => break,
-            Err(mpsc::TryRecvError::Empty) => {}
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-
-    relay_handle.abort();
-    relay_forward_handle.abort();
-}
 
 /// Forward relay events to the UI channel.
 ///
