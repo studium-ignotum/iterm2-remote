@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 
 /// Control messages sent as JSON over WebSocket Text frames.
 /// Terminal I/O is sent as Binary frames (not wrapped in ControlMessage).
-///
-/// This MUST match the relay-server-v2/src/protocol.rs exactly.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ControlMessage {
@@ -15,10 +13,10 @@ pub enum ControlMessage {
     BrowserConnected { browser_id: String },
     BrowserDisconnected { browser_id: String },
 
-    // Browser -> Relay (not used by mac-client but included for completeness)
+    // Browser -> Relay
     Auth { session_code: String },
 
-    // Relay -> Browser (not used by mac-client)
+    // Relay -> Browser
     AuthSuccess,
     AuthFailed { reason: String },
 
@@ -46,48 +44,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_register_serialization() {
-        let msg = ControlMessage::Register {
-            client_id: "test".into(),
-        };
+    fn test_serialize_register() {
+        let msg = ControlMessage::Register { client_id: "test".into() };
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"type\":\"register\""));
         assert!(json.contains("\"client_id\":\"test\""));
     }
 
     #[test]
-    fn test_registered_deserialization() {
-        let json = r#"{"type":"registered","code":"ABC123"}"#;
+    fn test_serialize_registered() {
+        let msg = ControlMessage::Registered { code: "ABC123".into() };
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("\"type\":\"registered\""));
+        assert!(json.contains("\"code\":\"ABC123\""));
+    }
+
+    #[test]
+    fn test_serialize_auth_success() {
+        let msg = ControlMessage::AuthSuccess;
+        let json = serde_json::to_string(&msg).unwrap();
+        assert_eq!(json, "{\"type\":\"auth_success\"}");
+    }
+
+    #[test]
+    fn test_deserialize_auth() {
+        let json = r#"{"type":"auth","session_code":"XYZ789"}"#;
         let msg: ControlMessage = serde_json::from_str(json).unwrap();
         match msg {
-            ControlMessage::Registered { code } => {
-                assert_eq!(code, "ABC123");
+            ControlMessage::Auth { session_code } => {
+                assert_eq!(session_code, "XYZ789");
             }
-            _ => panic!("Expected Registered message"),
+            _ => panic!("Expected Auth message"),
         }
     }
 
     #[test]
-    fn test_browser_connected_deserialization() {
-        let json = r#"{"type":"browser_connected","browser_id":"browser-uuid"}"#;
-        let msg: ControlMessage = serde_json::from_str(json).unwrap();
-        match msg {
-            ControlMessage::BrowserConnected { browser_id } => {
-                assert_eq!(browser_id, "browser-uuid");
-            }
-            _ => panic!("Expected BrowserConnected message"),
-        }
-    }
-
-    #[test]
-    fn test_error_deserialization() {
-        let json = r#"{"type":"error","message":"Something went wrong"}"#;
-        let msg: ControlMessage = serde_json::from_str(json).unwrap();
-        match msg {
-            ControlMessage::Error { message } => {
-                assert_eq!(message, "Something went wrong");
-            }
-            _ => panic!("Expected Error message"),
-        }
+    fn test_session_info() {
+        let info = SessionInfo {
+            id: "sess_1".into(),
+            name: "My Session".into(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        assert!(json.contains("\"id\":\"sess_1\""));
+        assert!(json.contains("\"name\":\"My Session\""));
     }
 }

@@ -21,7 +21,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import type { SessionConnectedMessage, SessionDisconnectedMessage } from '../../shared/protocol';
+import type { SessionConnectedMessage, SessionDisconnectedMessage, SessionListMessage } from '../../shared/protocol';
 import { useConnection } from './ConnectionContext';
 import { useTerminal } from './TerminalContext';
 
@@ -45,7 +45,7 @@ interface TabsContextValue {
   activeSessionId: string | null;
   activeSession: SessionInfo | undefined;
   switchSession: (sessionId: string) => void;
-  /** Create new tab - currently no-op (shell sessions managed by user) */
+  /** Create new tab - sends create_session to server */
   createTab: () => void;
   /** Close tab - currently no-op (shell sessions managed by user) */
   closeTab: (sessionId: string) => void;
@@ -80,8 +80,8 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   const sessionsRef = useRef<SessionInfo[]>([]);
   const removalTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const { registerMessageHandler, registerBinaryHandler } = useConnection();
-  const { setActiveSession, clearTerminal } = useTerminal();
+  const { registerMessageHandler, registerBinaryHandler, sendMessage } = useConnection();
+  const { setActiveSession } = useTerminal();
 
   // Keep refs in sync
   useEffect(() => {
@@ -215,6 +215,14 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unregister = registerMessageHandler((data) => {
       switch (data.type) {
+        case 'session_list': {
+          const msg = data as unknown as SessionListMessage;
+          console.log('[TabsContext] Received session_list:', msg.sessions.length, 'sessions');
+          for (const session of msg.sessions) {
+            addOrUpdateSession(session.id, session.name);
+          }
+          break;
+        }
         case 'session_connected': {
           const msg = data as unknown as SessionConnectedMessage;
           addOrUpdateSession(msg.session_id, msg.name);
@@ -254,24 +262,47 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     const session = sessionsRef.current.find((s) => s.id === sessionId);
     if (!session) return;
 
-    // Clear terminal before switch
-    clearTerminal();
-
     setActiveSessionId(sessionId);
     activeSessionIdRef.current = sessionId;
     setActiveSession(sessionId);
-  }, [setActiveSession, clearTerminal]);
+  }, [setActiveSession]);
 
-  // No-op for shell sessions (user manages via shell)
   const createTabAction = useCallback(() => {
-    // Shell sessions are created by the user opening new terminal tabs
-    console.log('[TabsContext] createTab is a no-op in v2 (shell sessions managed by user)');
-  }, []);
+    sendMessage({ type: 'create_session' });
+  }, [sendMessage]);
 
-  const closeTabAction = useCallback((_sessionId: string) => {
-    // Shell sessions are closed by the user closing terminal tabs
-    console.log('[TabsContext] closeTab is a no-op in v2 (shell sessions managed by user)');
-  }, []);
+  const closeTabAction = useCallback((sessionId: string) => {
+    // Send close_session message to server
+    sendMessage({ type: 'close_session', session_id: sessionId });
+
+    // Remove immediately (don't use markSessionDisconnected delay)
+    setSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== sessionId);
+
+      // If we removed the active session, switch to first remaining
+      if (activeSessionIdRef.current === sessionId) {
+        const first = filtered[0];
+        if (first) {
+          setActiveSessionId(first.id);
+          activeSessionIdRef.current = first.id;
+          setActiveSession(first.id);
+        } else {
+          setActiveSessionId(null);
+          activeSessionIdRef.current = null;
+          setActiveSession(null);
+        }
+      }
+
+      return filtered;
+    });
+
+    // Clear any pending removal timer for this session
+    const timer = removalTimersRef.current.get(sessionId);
+    if (timer) {
+      clearTimeout(timer);
+      removalTimersRef.current.delete(sessionId);
+    }
+  }, [sendMessage, setActiveSession]);
 
   // ---------------------------------------------------------------------------
   // Context Value

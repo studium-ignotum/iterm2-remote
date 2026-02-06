@@ -11,3 +11,4 @@ __pycache__
 .venv
 target
 Terminal Remote.app/
+.claude/

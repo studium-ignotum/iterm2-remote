@@ -104,6 +104,25 @@ export type AuthFailedMessage = z.infer<typeof AuthFailedMessage>;
 // =============================================================================
 
 /**
+ * Session info in session list
+ */
+export const SessionInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type SessionInfoSchema = z.infer<typeof SessionInfoSchema>;
+
+/**
+ * List of all active sessions.
+ * Sent when a browser first connects.
+ */
+export const SessionListMessage = z.object({
+  type: z.literal('session_list'),
+  sessions: z.array(SessionInfoSchema),
+});
+export type SessionListMessage = z.infer<typeof SessionListMessage>;
+
+/**
  * A shell session connected from the mac-client.
  * Sent when a terminal tab/window connects via IPC.
  */
@@ -359,6 +378,7 @@ export const OutgoingMessage = z.discriminatedUnion('type', [
   DataMessage,
   PongMessage,
   // Session events (from mac-client via relay)
+  SessionListMessage,
   SessionConnectedMessage,
   SessionDisconnectedMessage,
   // Terminal I/O

@@ -13,7 +13,7 @@ export default function TerminalPage() {
   const navigate = useNavigate();
   const { state, isConnected, disconnect, sendTerminalInput, sendTerminalResize } = useConnection();
   const { activeSessionId, options } = useTerminal();
-  const { tabs } = useTabs();
+  const { tabs, createTab } = useTabs();
 
   // Redirect to login if disconnected
   useEffect(() => {
@@ -24,24 +24,6 @@ export default function TerminalPage() {
 
   function handleDisconnect() {
     disconnect();
-  }
-
-  function handleInput(data: string) {
-    if (activeSessionId) {
-      sendTerminalInput(activeSessionId, data);
-    }
-  }
-
-  function handleBinaryInput(data: string) {
-    if (activeSessionId) {
-      sendTerminalInput(activeSessionId, data);
-    }
-  }
-
-  function handleResize(cols: number, rows: number) {
-    if (activeSessionId) {
-      sendTerminalResize(activeSessionId, cols, rows);
-    }
   }
 
   function handleMobileKey(data: string) {
@@ -62,33 +44,37 @@ export default function TerminalPage() {
         </button>
       </header>
 
-      {isConnected && activeSessionId ? (
+      {isConnected && hasTabs ? (
         <div className="main-layout">
           {hasTabs && <TerminalTabs />}
           <div className="terminal-column">
-            <div className="terminal-area">
-              <Terminal
-                sessionId={activeSessionId}
-                options={options}
-                onInput={handleInput}
-                onBinaryInput={handleBinaryInput}
-                onTerminalResize={handleResize}
-              />
-            </div>
+            {tabs.map(tab => (
+              <div
+                key={tab.id}
+                className={`terminal-area ${tab.id === activeSessionId ? '' : 'terminal-area-hidden'}`}
+              >
+                <Terminal
+                  sessionId={tab.id}
+                  options={options}
+                  onInput={(data) => sendTerminalInput(tab.id, data)}
+                  onBinaryInput={(data) => sendTerminalInput(tab.id, data)}
+                  onTerminalResize={(cols, rows) => sendTerminalResize(tab.id, cols, rows)}
+                />
+              </div>
+            ))}
             <MobileControlBar onKey={handleMobileKey} />
           </div>
         </div>
       ) : (
         <main className="waiting-state">
           <div className="waiting-content">
-            <div className="spinner" />
-            <h2>Waiting for terminal session...</h2>
+            <h2>No terminal sessions</h2>
             <p className="waiting-detail">
-              The Mac client will send terminal data once connected.
+              Create a new session to get started.
             </p>
-            <div className="status-info">
-              <span className="status-badge">{state}</span>
-            </div>
+            <button className="btn-create-session" onClick={createTab}>
+              + New Session
+            </button>
           </div>
         </main>
       )}
