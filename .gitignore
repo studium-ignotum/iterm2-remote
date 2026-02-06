@@ -9,3 +9,6 @@ __pycache__
 .DS_Store
 *.log
 .venv
+target
+Terminal Remote.app/
+.claude/

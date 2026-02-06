@@ -1,0 +1,30 @@
+[package]
+name = "mac-client"
+version = "2.0.0"
+edition = "2021"
+
+# Build .app bundle:
+# 1. cargo build --release --manifest-path mac-client/Cargo.toml
+# 2. ./mac-client/build-bundle.sh
+# Or manually:
+#   mkdir -p "Terminal Remote.app/Contents/MacOS"
+#   cp target/release/mac-client "Terminal Remote.app/Contents/MacOS/"
+#   cp mac-client/Info.plist "Terminal Remote.app/Contents/"
+#   open "Terminal Remote.app"
+
+[dependencies]
+tray-icon = "0.21"
+muda = "0.17"
+image = "0.25"
+tokio = { version = "1", features = ["full", "sync", "net"] }
+tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
+futures-util = "0.3"
+arboard = "3.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+smappservice-rs = "0.1"
+winit = "0.30"
+portable-pty = "0.8"

@@ -2,76 +2,149 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-04)
+See: .planning/PROJECT.md (updated 2026-02-06)
 
-**Core value:** Full terminal experience remotely - if it works in iTerm2, it should work in the browser
-**Current focus:** Phase 3 - Performance & Reliability
+**Core value:** Control any terminal session from anywhere -- works with any terminal app
+**Current focus:** Milestone v2.0 - Rust Rewrite
 
 ## Current Position
 
-Phase: 3 of 3 (Performance & Reliability)
-Plan: 0 of ? in current phase
-Status: Not started
-Last activity: 2026-02-05 - Completed Phase 2
+Phase: 8 - Installer & Setup (2/2 plans complete)
+Plan: 08-02 complete
+Status: Phase complete
+Last activity: 2026-02-06 -- Completed 08-02-PLAN.md (Homebrew Cask & Release Workflow)
 
-Progress: [########=-] 89%
+Progress: [##########] 100% (phase 8)
 
-## Performance Metrics
+Overall v2.0: [████████████████████████░] 96% (24/25 plans -- 07-03 remaining)
 
-**Velocity:**
-- Total plans completed: 8
-- Average duration: 4 min
-- Total execution time: ~0.5 hours
+## v2.0 Overview
 
-**By Phase:**
+Four phases delivering a complete Rust rewrite with universal terminal support:
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1. Connection & Auth | 3 | 14 min | 5 min |
-| 2. Terminal & iTerm2 | 5 | 20 min | 4 min |
-| 3. Performance | - | - | - |
+| Phase | Goal | Requirements | Status |
+|-------|------|--------------|--------|
+| 4 | Relay Server | 5 (RELAY) | COMPLETE (4/4 plans) |
+| 5 | Mac Client | 13 (CLIENT) | COMPLETE (6/6 plans) |
+| 6 | Shell Integration | 9 (SHELL) | COMPLETE (2/2 plans) |
+| 7 | Web UI & Full Pipeline | 9 (WEB) | IN PROGRESS (2/3 plans) |
+| 8 | Installer & Setup | - | COMPLETE (2/2 plans) |
 
-*Updated after each plan completion*
+## v1.0 Summary (Node.js/SvelteKit)
+
+Completed phases 1-2 (connection, auth, terminal, iTerm2 integration).
+Phase 3 (performance) deferred -- starting v2.0 Rust rewrite instead.
+
+**What worked:**
+- WebSocket relay architecture
+- Session code authentication
+- xterm.js terminal emulation
+- Real-time bidirectional I/O
+
+**What's changing:**
+- Node.js -> Rust (performance, single binary)
+- iTerm2-only -> Universal (shell integration)
+- Separate web app -> Embedded in relay
 
 ## Accumulated Context
 
-### Decisions
+### v1.0 Decisions (apply to v2.0)
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+| Decision | Rationale | Applies to v2.0? |
+|----------|-----------|------------------|
+| 6-char session codes | Human-typeable, collision-resistant | Keep |
+| xterm.js for terminal | Industry standard | Keep (bundle as static) |
+| Session codes over passwords | Simple, secure enough | Keep |
+| WebSocket relay | NAT traversal, works anywhere | Keep |
 
-| Decision | Rationale | Plan |
-|----------|-----------|------|
-| 6-char session codes with nolookalikes alphabet | Balance human-typeable and collision-resistant (~1B combinations) | 01-01 |
-| 5-minute code expiry, infinite once paired | Codes expire unused but last forever once connected | 01-01 |
-| Zod discriminated unions for protocol | Compile-time + runtime safety for WebSocket messages | 01-01 |
-| State machine for connection lifecycle | Validates transitions, prevents invalid state jumps | 01-02 |
-| Exponential backoff 1s/2x/30s max with 10% jitter | Balance quick recovery with server protection | 01-02 |
-| Svelte 5 runes for reactive state | Modern reactive patterns with $state/$derived/$effect | 01-03 |
-| reconnecting-websocket for auto-reconnect | Exponential backoff 1s-30s, max 10 retries | 01-03 |
-| Default passthrough routing in relay | All new message types are pure relay - Zod validates, forward raw JSON | 02-01 |
-| JSON lines over Unix domain socket for IPC | Simple, debuggable protocol for Python-to-Node.js bridge communication | 02-02 |
-| One coprocess socket per session | Avoids multiplexing complexity in coprocess shell script | 02-02 |
-| Base64 encoding for terminal data | Raw PTY bytes may contain non-UTF-8, safe for JSON transport | 02-02 |
-| fileURLToPath for ESM dirname | tsconfig bundler moduleResolution lacks import.meta.dirname types | 02-03 |
-| Import addon types from xterm-svelte re-exports | pnpm virtual store prevents direct @xterm/* type imports | 02-04 |
-| Terminal.svelte exports write/getTerminal/fit | Store needs to write data to specific terminal instances | 02-04 |
-| Sticky modifiers for mobile control bar | Tap-once Ctrl/Alt for better touch UX | 02-05 |
-| SSR disabled globally | SvelteKit 2.50 + Svelte 5 + Vite 6 CSS bug; terminal app has no SSR benefit | 02-05 fix |
-| Python venv for mac-client deps | macOS Homebrew Python blocks pip install (PEP 668) | 02-05 fix |
-| .svelte.ts for rune-enabled stores | Svelte 5 $state only available in .svelte and .svelte.ts files | 02-05 fix |
+### v2.0 Decisions
+
+| Decision | Rationale | Phase |
+|----------|-----------|-------|
+| axum-embed 0.1 | 0.2 not available, 0.1 works | 04-01 |
+| Tagged enum protocol | `#[serde(tag = "type", rename_all = "snake_case")]` for clean JSON | 04-01 |
+| PORT env with default | `std::env::var("PORT").unwrap_or_else(\|_\| "3000")` | 04-01 |
+| 31-char code alphabet | Excludes 0/O/1/I/L to prevent transcription errors | 04-02 |
+| Arc<Inner> for AppState | Cheap Clone for axum State while sharing data | 04-02 |
+| DashMap for sessions | Lock-free concurrent access without mutex management | 04-02 |
+| ServeEmbed with explicit index | `Some("index.html")` required for root path serving | 04-03 |
+| FallbackBehavior::Ok for SPA | Returns index.html for unknown paths (client routing) | 04-03 |
+| Browser tracking in Session | DashMap<browser_id, Sender> for multiple browsers per session | 04-04 |
+| Channel-based message routing | mpsc::channel per client for async message forwarding | 04-04 |
+| First message determines client type | Register = mac-client, Auth = browser | 04-04 |
+| tray-icon + muda for menu bar | Lighter weight than full Tauri for menu-only app | 05-01 |
+| Template icon with icon_as_template(true) | macOS auto-inverts for dark mode | 05-01 |
+| Polling event loop with 10ms sleep | Non-blocking try_recv() avoids busy-waiting | 05-01 |
+| UiCommand/BackgroundEvent enums | Channel types for future thread communication | 05-01 |
+| std::sync::mpsc for relay events | AppKit compatibility - main thread runs event loop | 05-02 |
+| Max backoff 32 seconds | 5 doublings (2^5) before capping | 05-02 |
+| Protocol types duplicated | Type safety without shared crate complexity | 05-02 |
+| IPC socket at /tmp/terminal-remote.sock | Standard temp dir, discoverable by shell integration | 05-03 |
+| Stale socket cleanup on startup | Prevents address-in-use after unclean shutdown | 05-03 |
+| JSON shell registration format | name/shell/pid fields for UI display and debugging | 05-03 |
+| spawn_blocking for event forwarding | Bridges async Tokio with sync main thread mpsc | 05-04 |
+| AppState holds MenuItem refs | Allows set_text() calls for dynamic menu updates | 05-04 |
+| 2-second Copied! feedback | Polling reset in event loop, simple implementation | 05-04 |
+| BackgroundCommand::Shutdown | Graceful shutdown via channel signaling | 05-04 |
+| Binary frame format: 1-byte length prefix | Variable-length session IDs with simple framing | 05-06 |
+| Arc<Mutex<HashMap>> for IPC sessions | Shared mutable access from handler and command processor | 05-06 |
+| Clone command senders for forwarding | Each forwarder needs own copy for opposite-module routing | 05-06 |
+| winit EventLoop for macOS tray icon | macOS requires proper run loop for tray to appear | 05-05 |
+| ApplicationHandler trait pattern | EventLoop::with_user_event() + run_app() for macOS apps | 05-05 |
+| TrayIconEvent::set_event_handler bridging | Forward tray events to winit via EventLoopProxy | 05-05 |
+| LSUIElement=true for menu bar app | Info.plist key hides app from Dock | 05-05 |
+| SMAppService for login items | macOS 13+ API for register/unregister at login | 05-05 |
+| nc -U for shell socket communication | Portable across all shells, no external dependencies | 06-01 |
+| Background cat to hold socket open | Keeps nc connection alive until explicitly killed | 06-01 |
+| Session name format: dirname [PID] | Human-readable, unique per shell instance | 06-01 |
+| Prompt hooks for reconnection | Lightweight check every prompt vs dedicated thread | 06-01 |
+| Install to ~/.terminal-remote/ | User-local directory, standard pattern for shell tools | 06-02 |
+| Source line at END of rc file | Avoids conflicts with oh-my-zsh, starship, p10k | 06-02 |
+| 1-byte length prefix for binary frames | Simple framing, max 255-byte session IDs | 07-01 |
+| snake_case auth message fields | Match Rust serde(rename_all = "snake_case") | 07-01 |
+| Keep v1 Join/Joined messages | Backwards compatibility during transition | 07-01 |
+| WebSocket endpoint /ws | Matches Rust relay endpoint | 07-02 |
+| Sessions from binary frames | Discover sessions when first binary data arrives | 07-02 |
+| Auto-switch first session | Automatically select first arriving session | 07-02 |
+| 5-second disconnect removal | Show disconnected briefly, then remove from list | 07-02 |
+| writeUtf8 for terminal data | Efficient binary writes in xterm.js 5.x | 07-02 |
+| Hard fail on missing Homebrew | No partial installs, cloudflared/tmux require brew | 08-01 |
+| Shell integration from release archive | Version-matched init scripts bundled with binaries | 08-01 |
+| grep -qF for idempotent source lines | Prevents duplicate entries on re-run | 08-01 |
+| LaunchAgent plist for login startup | Simpler than SMAppService, easily reversible | 08-01 |
+| Default "n" for piped stdin | curl\|sh can't read interactive input | 08-01 |
+| Cask not Formula for .app bundle | mac-client is GUI app, Casks are correct for .app bundles | 08-02 |
+| pnpm for web UI in CI | Matches existing pnpm-lock.yaml in relay-server/web-ui | 08-02 |
+| Staging directory for tar packaging | More reliable than tar -s path substitution across platforms | 08-02 |
+| macos-14 for ARM64, macos-13 for Intel | Native compilation on each architecture, no cross-compilation | 08-02 |
+
+### v2.0 Stack (from research)
+
+| Component | Technology | Notes |
+|-----------|------------|-------|
+| Menu bar | tray-icon 0.21 + muda 0.17 | Tauri-team maintained |
+| WebSocket server | axum 0.8 | Tokio-team framework |
+| Static embedding | rust-embed 8.11 | Single binary distribution |
+| Shell IPC | Unix domain sockets | Native tokio support |
+| PTY handling | portable-pty or nix | Needs prototyping |
+
+### Critical Pitfalls (from research)
+
+1. **AppKit main thread** -- Tokio must run on background thread, use channels
+2. **PTY blocking I/O** -- Use spawn_blocking for all PTY operations
+3. **Notarization required** -- Sign + notarize before distribution
+4. **Shell hook conflicts** -- Use add-zsh-hook, load after oh-my-zsh
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- socat not installed on system; coprocess script falls back to nc. Recommend `brew install socat` for production use.
-- iTerm2 resize: Mac bridge receives resize messages but doesn't resize iTerm2 PTY (design limitation — iTerm2 controls PTY size based on session display area).
+None -- Shell integration installed and verified working with mac-client.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Completed Phase 2, ready for Phase 3
-Resume file: None
+Last session: 2026-02-06T11:09:23Z
+Stopped at: Completed 08-02-PLAN.md (Homebrew Cask & Release Workflow)
+Resume file: .planning/phases/07-web-ui-full-pipeline/07-03-PLAN.md
