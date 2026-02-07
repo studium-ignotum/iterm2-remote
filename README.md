@@ -4,6 +4,8 @@ Access your Mac's terminal sessions from any browser, anywhere.
 
 A menu bar app runs on your Mac, connects to a relay server, and you open the relay's web UI from any device — iPad, laptop, phone — to see and interact with your terminal sessions.
 
+![Web UI](example/web.jpg)
+
 ## Install
 
 ```bash
