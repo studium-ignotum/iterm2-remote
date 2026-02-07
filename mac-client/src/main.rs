@@ -51,6 +51,7 @@ struct App {
     copy_reset_time: Option<Instant>,
     pty_cmd_tx: Option<tokio::sync::mpsc::UnboundedSender<PtyCommand>>,
     cloudflared_pid: Arc<AtomicU32>,
+    relay_server_pid: Arc<AtomicU32>,
 }
 
 impl App {
@@ -65,6 +66,7 @@ impl App {
             copy_reset_time: None,
             pty_cmd_tx: None,
             cloudflared_pid: Arc::new(AtomicU32::new(0)),
+            relay_server_pid: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -129,6 +131,11 @@ impl App {
                 if pid != 0 {
                     info!("Killing cloudflared (pid {})", pid);
                     unsafe { libc::kill(pid as i32, libc::SIGTERM); }
+                }
+                let relay_pid = self.relay_server_pid.load(Ordering::Relaxed);
+                if relay_pid != 0 {
+                    info!("Killing relay-server (pid {})", relay_pid);
+                    unsafe { libc::kill(relay_pid as i32, libc::SIGTERM); }
                 }
                 std::process::exit(0);
             }
@@ -312,8 +319,74 @@ fn main() {
     // Create pty command channel (sender stays in main thread)
     let (pty_cmd_tx, pty_cmd_rx) = tokio::sync::mpsc::unbounded_channel::<PtyCommand>();
 
+    // Spawn relay-server as a child process
+    let relay_server_pid = Arc::new(AtomicU32::new(0));
+    {
+        // Find relay-server binary: next to our binary, or in ~/.terminal-remote/bin/
+        let relay_bin = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("relay-server")))
+            .filter(|p| p.exists())
+            .or_else(|| {
+                let home = std::env::var("HOME").ok()?;
+                let p = std::path::PathBuf::from(home).join(".terminal-remote/bin/relay-server");
+                p.exists().then_some(p)
+            });
+
+        match relay_bin {
+            Some(bin) => {
+                info!("Starting relay-server from: {}", bin.display());
+                match Command::new(&bin).spawn() {
+                    Ok(child) => {
+                        let pid = child.id();
+                        info!("relay-server started (pid {})", pid);
+                        relay_server_pid.store(pid, Ordering::Relaxed);
+                    }
+                    Err(e) => {
+                        error!("Failed to spawn relay-server: {}", e);
+                    }
+                }
+            }
+            None => {
+                warn!("relay-server binary not found, assuming it is already running");
+            }
+        }
+    }
+
     // Shared PID for killing cloudflared on quit
     let cloudflared_pid = Arc::new(AtomicU32::new(0));
+
+    // Install signal handler so relay-server and cloudflared are killed
+    // even if mac-client is terminated via SIGTERM/SIGINT (e.g. launchctl stop)
+    {
+        let relay_pid = relay_server_pid.clone();
+        let cf_pid = cloudflared_pid.clone();
+        unsafe {
+            let cleanup = move || {
+                let rpid = relay_pid.load(Ordering::Relaxed);
+                if rpid != 0 {
+                    libc::kill(rpid as i32, libc::SIGTERM);
+                }
+                let cpid = cf_pid.load(Ordering::Relaxed);
+                if cpid != 0 {
+                    libc::kill(cpid as i32, libc::SIGTERM);
+                }
+                libc::_exit(0);
+            };
+            // Store in a static so the closure lives forever
+            static mut CLEANUP: Option<Box<dyn Fn()>> = None;
+            CLEANUP = Some(Box::new(cleanup));
+            extern "C" fn handler(_sig: libc::c_int) {
+                unsafe {
+                    if let Some(ref f) = CLEANUP {
+                        f();
+                    }
+                }
+            }
+            libc::signal(libc::SIGTERM, handler as libc::sighandler_t);
+            libc::signal(libc::SIGINT, handler as libc::sighandler_t);
+        }
+    }
 
     // Spawn background thread with Tokio runtime
     let ui_tx_bg = ui_tx.clone();
@@ -413,6 +486,7 @@ fn main() {
     app.bg_handle = Some(bg_handle);
     app.pty_cmd_tx = Some(pty_cmd_tx);
     app.cloudflared_pid = cloudflared_pid;
+    app.relay_server_pid = relay_server_pid;
 
     info!("Entering main event loop");
 

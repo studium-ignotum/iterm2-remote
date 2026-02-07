@@ -142,7 +142,9 @@ echo -e "${GREEN}  pty-proxy -> $INSTALL_DIR/bin/pty-proxy${NC}"
 # Install .app bundle (remove old version first for clean update)
 rm -rf "$APP_DIR/$APP_NAME"
 cp -R "$TMPDIR/$APP_NAME" "$APP_DIR/"
-echo -e "${GREEN}  $APP_NAME -> $APP_DIR/$APP_NAME${NC}"
+# Copy relay-server into the .app bundle (mac-client manages its lifecycle)
+cp "$INSTALL_DIR/bin/relay-server" "$APP_DIR/$APP_NAME/Contents/MacOS/relay-server"
+echo -e "${GREEN}  $APP_NAME -> $APP_DIR/$APP_NAME (includes relay-server)${NC}"
 
 # ── Install shell integration ─────────────────────────────────
 echo ""
@@ -223,47 +225,14 @@ fi
 
 # Unload current agents if already installed (for clean reinstall)
 launchctl unload "$RELAY_PLIST" 2>/dev/null || true
+rm -f "$RELAY_PLIST"  # relay-server is now managed by mac-client
 launchctl unload "$APP_PLIST" 2>/dev/null || true
 
 # Build PATH that includes Homebrew so services can find cloudflared
 BREW_PREFIX="$(brew --prefix)"
 LAUNCH_PATH="${BREW_PREFIX}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-# relay-server daemon
-cat > "$RELAY_PLIST" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${RELAY_LABEL}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${INSTALL_DIR}/bin/relay-server</string>
-    </array>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>${LAUNCH_PATH}</string>
-    </dict>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>${INSTALL_DIR}/relay-server.log</string>
-    <key>StandardErrorPath</key>
-    <string>${INSTALL_DIR}/relay-server.log</string>
-</dict>
-</plist>
-EOF
-
-echo -e "${GREEN}  Created $RELAY_PLIST${NC}"
-
-# mac-client menu bar app
+# mac-client menu bar app (also starts/stops relay-server)
 cat > "$APP_PLIST" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -299,10 +268,9 @@ EOF
 
 echo -e "${GREEN}  Created $APP_PLIST${NC}"
 
-# Start both services immediately
-launchctl load "$RELAY_PLIST"
+# Start service (mac-client manages relay-server lifecycle)
 launchctl load "$APP_PLIST"
-echo -e "${GREEN}  Services started${NC}"
+echo -e "${GREEN}  Service started${NC}"
 
 # ── Summary ───────────────────────────────────────────────────
 echo ""
@@ -311,12 +279,11 @@ echo "  Installation complete!"
 echo "========================================${NC}"
 echo ""
 echo "  Installed:"
-echo "    App:          $APP_DIR/$APP_NAME"
-echo "    Relay:        $INSTALL_DIR/bin/relay-server"
+echo "    App:          $APP_DIR/$APP_NAME (includes relay-server)"
 echo "    PTY Proxy:    $INSTALL_DIR/bin/pty-proxy"
 echo "    Shell config: $INSTALL_DIR/init.$SHELL_EXT"
 echo ""
-echo "  Services are running and will auto-start on login."
+echo "  Service is running and will auto-start on login."
 echo "  Restart your shell to activate shell integration,"
 echo "  then new terminal sessions will auto-register."
 echo ""

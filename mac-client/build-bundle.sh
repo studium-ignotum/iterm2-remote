@@ -42,6 +42,15 @@ mkdir -p "$APP_PATH/Contents/Resources"
 echo "Copying binary..."
 cp "$BINARY_PATH" "$APP_PATH/Contents/MacOS/"
 
+# Copy relay-server binary (mac-client manages its lifecycle)
+RELAY_BINARY="$PROJECT_ROOT/relay-server/target/release/relay-server"
+if [ -f "$RELAY_BINARY" ]; then
+    echo "Copying relay-server..."
+    cp "$RELAY_BINARY" "$APP_PATH/Contents/MacOS/"
+else
+    echo "Warning: relay-server binary not found at $RELAY_BINARY (build with: cargo build --release -p relay-server)"
+fi
+
 # Copy Info.plist
 echo "Copying Info.plist..."
 cp "$SCRIPT_DIR/Info.plist" "$APP_PATH/Contents/"

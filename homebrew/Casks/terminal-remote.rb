@@ -17,8 +17,7 @@ cask "terminal-remote" do
   # Install the .app bundle
   app "Terminal Remote.app"
 
-  # Install binaries
-  binary "relay-server", target: "#{HOMEBREW_PREFIX}/bin/terminal-remote-relay"
+  # Install binaries (relay-server is bundled inside the .app, managed by mac-client)
   binary "pty-proxy", target: "#{HOMEBREW_PREFIX}/bin/terminal-remote-pty-proxy"
 
   # Post-install: copy shell integration scripts and pty-proxy to install dir
