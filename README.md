@@ -15,7 +15,7 @@ That's it. Services start immediately and auto-start on login.
 To install a specific version:
 
 ```bash
-VERSION=v2.1.0 curl -fsSL https://raw.githubusercontent.com/studium-ignotum/ignis-term/master/scripts/install.sh | bash
+VERSION=v2.2.0 curl -fsSL https://raw.githubusercontent.com/studium-ignotum/ignis-term/master/scripts/install.sh | bash
 ```
 
 ### What it does
@@ -93,7 +93,7 @@ Removes the app, binaries, LaunchAgents, and shell integration.
 Each shell session is wrapped in a `pty-proxy` process that sits between the terminal emulator and the shell. The proxy forwards all I/O transparently while sending a copy to the mac-client via Unix socket.
 
 ```
-Terminal emulator (iTerm2, etc.)
+Terminal.app
     ↕ PTY (transparent)
 pty-proxy
     ├── ↕ Shell (zsh/bash/fish)
