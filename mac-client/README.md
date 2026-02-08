@@ -1,40 +1,40 @@
 # Mac Client
 
-The Mac-side component that bridges iTerm2 to the relay server.
+A macOS menu bar application that manages remote terminal sessions.
+
+| Menu Bar | Web UI |
+|----------|--------|
+| ![Menu Bar](../example/menu.jpg) | ![Web UI](../example/web.jpg) |
 
 ## Overview
 
 This component runs on the user's Mac and:
-1. Connects to the relay server via WebSocket
-2. Receives a session code for browser pairing
-3. Captures iTerm2 terminal output and sends it to connected browsers
-4. Receives keyboard input from browsers and writes it to iTerm2
+1. Sits in the menu bar with a tray icon showing connection status
+2. Spawns the relay server and cloudflared tunnel as child processes
+3. Accepts pty-proxy connections via Unix socket (`/tmp/terminal-remote.sock`)
+4. Bridges terminal I/O between local shells and the relay server via WebSocket
+5. Displays session code, tunnel URL, and session count in the menu bar
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Mac Client                                                       │
+│ Mac Client (menu bar app)                                       │
 │                                                                 │
 │  ┌──────────────┐    WebSocket    ┌────────────────────────┐   │
-│  │ ConnectionMgr │ ◄────────────► │ Relay Server (remote) │    │
+│  │ RelayClient   │ ◄────────────► │ Relay Server (child)   │   │
 │  └──────────────┘                 └────────────────────────┘   │
 │         │                                                       │
 │         ▼                                                       │
 │  ┌──────────────┐    Unix Socket   ┌─────────────────┐         │
-│  │ SessionMgr   │ ◄──────────────► │ iterm-bridge.py │         │
-│  └──────────────┘                  └─────────────────┘         │
-│                                           │                     │
-│                                           ▼                     │
-│                                    ┌─────────────────┐         │
-│                                    │ coprocess-      │         │
-│                                    │ bridge.sh       │         │
-│                                    │ (per session)   │         │
+│  │ PtyManager   │ ◄──────────────► │ pty-proxy       │         │
+│  └──────────────┘                  │ (per session)    │         │
 │                                    └─────────────────┘         │
 │                                           │                     │
 │                                           ▼                     │
 │                                    ┌─────────────────┐         │
-│                                    │ iTerm2 PTY      │         │
+│                                    │ Shell PTY        │         │
+│                                    │ (zsh/bash/fish)  │         │
 │                                    └─────────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -43,58 +43,78 @@ This component runs on the user's Mac and:
 
 | File | Purpose |
 |------|---------|
-| `src/index.ts` | Entry point - creates managers and displays session code |
-| `src/connection.ts` | WebSocket connection to relay with reconnection logic |
-| `src/session-manager.ts` | Routes messages between relay and iTerm2 bridge |
-| `src/iterm-bridge.ts` | Spawns and manages the Python bridge subprocess |
-| `src/state-machine.ts` | Connection state validation |
-| `iterm-bridge.py` | Python bridge using iTerm2 API (Unix socket server) |
-| `coprocess-bridge.sh` | Bash script run as iTerm2 coprocess per terminal session |
+| `src/main.rs` | Entry point, event loop, tray icon, menu bar, cloudflared tunnel |
+| `src/app.rs` | App state, UI/background event types, channel definitions |
+| `src/protocol.rs` | Control message serialization (shared with relay-server) |
+| `src/relay/connection.rs` | WebSocket client with auto-reconnect and exponential backoff |
+| `src/pty/mod.rs` | PTY proxy session management via Unix socket |
+| `src/lib.rs` | Module declarations |
 
-## Running
+## Building
 
 ```bash
-# Development (with hot reload)
-pnpm run dev
+# Debug build
+cargo build -p mac-client
 
-# Production
-pnpm run build
-pnpm start
+# Release build
+cargo build --release -p mac-client
+
+# Build .app bundle (after release build)
+./mac-client/build-bundle.sh
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RELAY_URL` | `ws://localhost:8080/mac` | Relay server WebSocket URL |
+| `RELAY_URL` | `ws://localhost:3000/ws` | Relay server WebSocket URL |
 
 ## How It Works
 
 ### Terminal Output Flow
 
-1. `coprocess-bridge.sh` runs as an iTerm2 coprocess for each terminal session
-2. The coprocess captures stdout from the terminal
-3. Data is sent via Unix socket to `iterm-bridge.py`
-4. Python bridge Base64-encodes and wraps in JSON
-5. `session-manager.ts` receives via Unix socket
-6. Data is forwarded to relay via WebSocket
+1. Shell integration wraps each shell in a `pty-proxy` instance
+2. `pty-proxy` connects to mac-client via Unix socket (`/tmp/terminal-remote.sock`)
+3. Proxy sends registration (shell, pid, tty) then streams length-prefixed output frames
+4. `PtyManager` receives output and forwards to `RelayClient`
+5. `RelayClient` sends binary WebSocket frames to the relay server
+6. Relay broadcasts to connected browsers
 
 ### User Input Flow
 
-1. `session-manager.ts` receives `UserInput` message from relay
-2. Message forwarded to Python bridge via Unix socket
-3. Python bridge writes to the appropriate iTerm2 session
-4. iTerm2 PTY receives and executes
+1. `RelayClient` receives binary WebSocket frames from relay (browser input)
+2. Frames are parsed and forwarded to `PtyManager`
+3. `PtyManager` sends JSON input messages to the appropriate pty-proxy via Unix socket
+4. pty-proxy writes to the shell PTY
 
-### Tab Management
+### Process Lifecycle
 
-1. Python bridge queries iTerm2 for open tabs
-2. Tab list sent to relay, forwarded to browser
-3. When user selects a tab, `SelectTab` message is sent
-4. Python bridge switches the active iTerm2 tab
+1. Mac client starts and spawns relay-server as a child process
+2. Spawns cloudflared tunnel pointing at `http://localhost:3000`
+3. Connects to relay via WebSocket and receives a session code
+4. Listens on Unix socket for pty-proxy connections
+5. On quit, kills cloudflared and relay-server child processes
+
+### Menu Bar
+
+The tray icon menu displays:
+- Tunnel URL (with copy action)
+- Session code (with copy action)
+- Connection status
+- Active session count
+- Regenerate code, start at login, and quit actions
 
 ## Dependencies
 
-- `ws` - WebSocket client
-- `tsx` - TypeScript execution
-- Python 3.7+ with iTerm2 module
+| Crate | Purpose |
+|-------|---------|
+| `tray-icon`, `muda` | System tray icon and menu |
+| `winit` | macOS event loop |
+| `tokio`, `tokio-tungstenite`, `futures-util` | Async runtime and WebSocket |
+| `arboard` | Clipboard access |
+| `serde`, `serde_json` | JSON serialization |
+| `uuid` | Session ID generation |
+| `tracing`, `tracing-subscriber` | Structured logging |
+| `smappservice-rs` | Login item management (macOS SMAppService) |
+| `image` | Tray icon loading |
+| `libc` | Signal handling, process management |
